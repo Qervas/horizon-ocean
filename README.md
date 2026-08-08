@@ -2,8 +2,15 @@
 
 FFT + Gerstner hybrid ocean with multi-point buoyancy.
 
-**Play on phone (no download):**
+## Play
 
-https://cdn.jsdelivr.net/gh/Qervas/horizon-ocean@main/index.html
+After enabling GitHub Pages (once):
 
-Controls: **Launch**, then **WASD** (A left / D right). Touch sticks on mobile.
+**https://qervas.github.io/horizon-ocean/**
+
+One-time setup (phone or desktop):
+1. Open https://github.com/Qervas/horizon-ocean/settings/pages
+2. Source → **GitHub Actions** (or Deploy from branch **main** / root)
+3. Save — the workflow deploys on every push to `main`
+
+Controls: **Launch**, then WASD / touch sticks.
