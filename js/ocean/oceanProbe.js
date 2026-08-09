@@ -34,16 +34,22 @@ precision highp float;
 precision highp sampler2D;
 
 uniform sampler2D uPositions;
-uniform sampler2D uDisp[4];
+uniform sampler2D uDisp0;
+uniform sampler2D uDisp1;
+uniform sampler2D uDisp2;
+uniform sampler2D uDisp3;
 uniform float uPatch[4];
 
 out vec4 outColor;
 
+// ESSL 3.00 forbids indexing a sampler array with a loop counter, so the
+// cascades are expanded explicitly here as they are in the water shader.
 vec2 horizontalDisplacement(vec2 p) {
   vec2 d = vec2(0.0);
-  for (int i = 0; i < 4; i++) {
-    d += texture(uDisp[i], p / uPatch[i]).xz;
-  }
+  d += texture(uDisp0, p / uPatch[0]).xz;
+  d += texture(uDisp1, p / uPatch[1]).xz;
+  d += texture(uDisp2, p / uPatch[2]).xz;
+  d += texture(uDisp3, p / uPatch[3]).xz;
   return d;
 }
 
@@ -61,12 +67,19 @@ void main() {
   float y = 0.0;
   vec2 dxz = vec2(0.0);
   float foam = 0.0;
-  for (int i = 0; i < 4; i++) {
-    vec4 s = texture(uDisp[i], p / uPatch[i]);
-    y += s.y;
-    dxz += s.xz;
-    foam = max(foam, s.w);
-  }
+
+  #define PROBE_CASCADE(SAMPLER, IDX)         \\
+    {                                         \\
+      vec4 s = texture(SAMPLER, p / uPatch[IDX]); \\
+      y += s.y;                               \\
+      dxz += s.xz;                            \\
+      foam = max(foam, s.w);                  \\
+    }
+
+  PROBE_CASCADE(uDisp0, 0)
+  PROBE_CASCADE(uDisp1, 1)
+  PROBE_CASCADE(uDisp2, 2)
+  PROBE_CASCADE(uDisp3, 3)
 
   outColor = vec4(y, dxz.x, dxz.y, foam);
 }
@@ -108,8 +121,15 @@ export class OceanProbe {
       fragmentShader: probeFragmentShader,
       uniforms: {
         uPositions: { value: this.positionTex },
-        uDisp: { value: [null, null, null, null] },
-        uPatch: { value: sim.cascades.map((c) => c.patch) },
+        uDisp0: { value: null },
+        uDisp1: { value: null },
+        uDisp2: { value: null },
+        uDisp3: { value: null },
+        uPatch: {
+          value: [0, 1, 2, 3].map(
+            (c) => sim.cascades[Math.min(c, sim.cascades.length - 1)].patch,
+          ),
+        },
       },
       depthTest: false,
       depthWrite: false,
@@ -147,9 +167,11 @@ export class OceanProbe {
   submit() {
     const r = this.renderer;
     const u = this.material.uniforms;
-    for (let c = 0; c < 4; c++) {
-      u.uDisp.value[c] = this.sim.displacementTexture(Math.min(c, this.sim.cascades.length - 1));
-    }
+    const last = this.sim.cascades.length - 1;
+    u.uDisp0.value = this.sim.displacementTexture(Math.min(0, last));
+    u.uDisp1.value = this.sim.displacementTexture(Math.min(1, last));
+    u.uDisp2.value = this.sim.displacementTexture(Math.min(2, last));
+    u.uDisp3.value = this.sim.displacementTexture(Math.min(3, last));
 
     const prev = r.getRenderTarget();
     r.setRenderTarget(this.target);

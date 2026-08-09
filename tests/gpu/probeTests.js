@@ -37,14 +37,20 @@ reg("probe returns finite surface data after readback", async () => {
   await settle(probe);
 
   assert(probe.ready === true, "no readback ever resolved");
+  let anyNonZero = false;
   for (let i = 0; i < 4; i++) {
     const s = probe.sample(i);
     assert(Number.isFinite(s.y), `slot ${i} y=${s.y}`);
     assert(Number.isFinite(s.dx) && Number.isFinite(s.dz), `slot ${i} displacement non-finite`);
     assert(Number.isFinite(s.foam), `slot ${i} foam=${s.foam}`);
+    if (s.y !== 0 || s.dx !== 0 || s.dz !== 0) anyNonZero = true;
   }
   probe.dispose();
   sim.dispose();
+
+  // Zeros are finite. Without this the test passes when the probe shader fails
+  // to compile and the target stays cleared.
+  assert(anyNonZero, "every probe slot read exactly zero — probe produced nothing");
 });
 
 reg("probe height matches the rendered displacement field", async () => {
@@ -97,6 +103,11 @@ reg("probe height matches the rendered displacement field", async () => {
   probe.dispose();
   sim.dispose();
 
+  // Both being zero would satisfy any tolerance, so require a real signal.
+  assert(
+    Math.abs(expectedY) > 1e-4,
+    `oracle height is ${expectedY} — the cascades produced no displacement to compare`,
+  );
   // Loose: the shader filters bilinearly while this oracle snaps to nearest,
   // so exact agreement is not expected — gross disagreement is the failure.
   assert(

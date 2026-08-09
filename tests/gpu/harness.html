@@ -54,6 +54,9 @@
       await import("./mrtTests.js");
       await import("./simTests.js");
       await import("./probeTests.js");
+      await import("./materialTests.js");
+      await import("./amplitudeTests.js");
+      await import("./mipTests.js");
     } catch (e) {
       window.__gpuTestsLoadError = String((e && e.stack) || e);
       document.getElementById("log").textContent = "LOAD ERROR\n" + window.__gpuTestsLoadError;
