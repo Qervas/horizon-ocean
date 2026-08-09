@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Horizon — Realistic Ocean</title>
+  <title>Horizon — Photoreal Ocean</title>
   <style>
     :root {
       --bg: #07090c;
@@ -95,7 +95,7 @@
     <div class="top" id="hudTop">
       <div class="chip"><span id="spd">0</span> <span class="u">kn</span></div>
       <div class="chip"><span id="hdg">0</span>°</div>
-      <div class="chip"><span class="u" id="wxLabel">moderate</span></div>
+      <div class="chip"><span class="u" id="wxLabel">calm</span></div>
     </div>
     <div class="actions">
       <button class="btn" id="btnSettings" type="button" title="Settings">⚙</button>
@@ -109,16 +109,16 @@
       </label>
       <div class="field">Sea state
         <div class="seg" id="wxSeg">
-          <button type="button" data-w="calm">calm</button>
-          <button type="button" data-w="moderate" class="on">moderate</button>
+          <button type="button" data-w="calm" class="on">calm</button>
+          <button type="button" data-w="moderate">moderate</button>
           <button type="button" data-w="storm">storm</button>
         </div>
       </div>
     </div>
     <div class="title" id="title">
-      <p class="k">FFT + Gerstner hybrid · multi-point buoyancy</p>
+      <p class="k">128² FFT · Gerstner · volume · ACES</p>
       <h1>Horizon</h1>
-      <p class="s">Physically driven open ocean — swell spectrum, persistent foam, hull torque, and wave drift.</p>
+      <p class="s">Photo-grade open ocean — Tessendorf swell, capillary detail, volumetric water, persistent wake foam, and multi-point hull buoyancy.</p>
       <button class="btn primary" id="btnLaunch" type="button">Launch</button>
       <div class="hints">
         <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> throttle &amp; steer</div>

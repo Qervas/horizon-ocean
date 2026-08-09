@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Ocean GPU tests</title>
+  <style>
+    html, body { margin: 0; background: #111; color: #ddd; font: 13px monospace; }
+    canvas { width: 256px; height: 256px; display: block; }
+    #log { padding: 8px; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <canvas id="c" width="256" height="256"></canvas>
+  <div id="log"></div>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+    }
+  }
+  </script>
+
+  <script type="module">
+    // Registry is defined before any test module loads, so registration order is safe.
+    window.__gpuTests = {
+      cases: [],
+      register(name, fn) {
+        this.cases.push({ name, fn });
+      },
+      async runAll() {
+        const results = [];
+        for (const c of this.cases) {
+          try {
+            await c.fn();
+            results.push({ name: c.name, ok: true, error: null });
+          } catch (e) {
+            // Catch per case so one failure never hides the rest.
+            results.push({ name: c.name, ok: false, error: String((e && e.stack) || e) });
+          }
+        }
+        document.getElementById("log").textContent = results
+          .map((r) => `${r.ok ? "PASS" : "FAIL"}  ${r.name}${r.ok ? "" : "\n  " + r.error}`)
+          .join("\n");
+        return results;
+      },
+    };
+
+    // Dynamic import inside try/catch: a module-load failure must surface as a
+    // readable error rather than an eternally-pending __gpuTestsReady.
+    try {
+      await import("./gpuTests.js");
+      await import("./mrtTests.js");
+      await import("./simTests.js");
+      await import("./probeTests.js");
+      await import("./materialTests.js");
+      await import("./amplitudeTests.js");
+      await import("./mipTests.js");
+    } catch (e) {
+      window.__gpuTestsLoadError = String((e && e.stack) || e);
+      document.getElementById("log").textContent = "LOAD ERROR\n" + window.__gpuTestsLoadError;
+    }
+    window.__gpuTestsReady = true;
+  </script>
+</body>
+</html>

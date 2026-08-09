@@ -1,0 +1,15 @@
+{
+  "name": "horizon-ocean",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "serve": "npx --yes serve . -l 5173",
+    "capture": "node scripts/capture.mjs",
+    "test:unit": "node --test \"tests/unit/*.test.js\"",
+    "test:gpu": "node scripts/run-gpu-tests.mjs",
+    "test": "npm run test:unit && npm run test:gpu"
+  },
+  "devDependencies": {
+    "playwright": "^1.49.0"
+  }
+}
