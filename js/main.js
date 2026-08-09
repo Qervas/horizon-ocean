@@ -53,7 +53,7 @@ oceanMat.uniforms.uFFTMap.value = fftTex;
 oceanMat.uniforms.uFoamTrail.value = foamTex;
 oceanMat.uniforms.uFFTPatch.value = fft.patch;
 
-const oceanGeo = new THREE.PlaneGeometry(700, 700, 280, 280);
+const oceanGeo = new THREE.PlaneGeometry(480, 480, 400, 400);
 oceanGeo.rotateX(-Math.PI / 2);
 const oceanMesh = new THREE.Mesh(oceanGeo, oceanMat);
 oceanMesh.frustumCulled = false;
@@ -317,21 +317,17 @@ function frame(now) {
   oceanMat.uniforms.uSunColor.value.copy(sun.sunColor);
   oceanMat.uniforms.uSkyZenith.value.copy(sun.zenith);
   oceanMat.uniforms.uSkyHorizon.value.copy(sun.horizon);
-  oceanMat.uniforms.uDeepColor.value.setRGB(0.002, 0.025, 0.055);
-  oceanMat.uniforms.uShallowColor.value.setRGB(0.01, 0.14, 0.18);
-  oceanMat.uniforms.uExposure.value = 0.85;
-  skyMat.uniforms.uZenith.value.setRGB(0.08, 0.22, 0.48);
-  skyMat.uniforms.uHorizon.value.setRGB(0.35, 0.5, 0.68);
-  skyMat.uniforms.uExposure.value = 0.95;
-  oceanMat.uniforms.uSkyZenith.value.setRGB(0.08, 0.22, 0.48);
-  oceanMat.uniforms.uSkyHorizon.value.setRGB(0.35, 0.5, 0.68);
+  oceanMat.uniforms.uDeepColor.value.setRGB(0.001, 0.015, 0.04);
+  oceanMat.uniforms.uShallowColor.value.setRGB(0.008, 0.11, 0.15);
+  oceanMat.uniforms.uExposure.value = 0.92;
+  oceanMat.uniforms.uRoughness.value = 0.11;
   oceanMat.uniforms.uCameraY.value = camera.position.y;
 
   skyMat.uniforms.uSunDir.value.copy(sun.dir);
   skyMat.uniforms.uSunColor.value.copy(sun.sunColor);
   skyMat.uniforms.uZenith.value.copy(sun.zenith);
   skyMat.uniforms.uHorizon.value.copy(sun.horizon);
-  skyMat.uniforms.uExposure.value = sun.exposure;
+  skyMat.uniforms.uExposure.value = sun.exposure * 0.95;
   skyMat.uniforms.uTime.value = simTime;
 
   sunLight.position.copy(sun.dir).multiplyScalar(200);
