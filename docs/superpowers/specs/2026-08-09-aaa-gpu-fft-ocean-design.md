@@ -287,3 +287,22 @@ An FFT that is subtly wrong still looks like water, so correctness cannot be jud
 - **Readback latency on some drivers** may exceed the 1–2 frame assumption. Mitigated by measured (not assumed) latency and the analytic degradation path.
 - **72 draws/frame** is fill-cheap but draw-call-bound on weak integrated GPUs. If it measures badly, cascade 3 can be dropped to 128², or cascades can move to a texture array.
 - **Fallback drift**: the two tiers will diverge cosmetically over time. Accepted.
+
+
+## Corrections made during implementation
+
+Two spec statements were wrong and are corrected here rather than silently in code.
+
+**FFT ping-pong is RGBA32F, not RGBA16F.** The transform is unnormalised
+(Tessendorf convention, so physical amplitudes fall out of the spectrum with no
+correction constant). Intermediates therefore exceed half-float's 65504 ceiling
+and would clip to infinity. Cascade *outputs* remain RGBA16F as specified.
+
+**three.js r170 cannot read a chosen MRT attachment.** Both
+`readRenderTargetPixels` and `readRenderTargetPixelsAsync` stop at
+`activeCubeFaceIndex`; there is no `textureIndex` parameter on this version
+(it exists only on `dev`). Any extra argument is silently ignored and
+attachment 0 is returned. Consequences: tests blit the wanted attachment to a
+single-attachment target before reading, and the buoyancy probe target **must**
+be single-attachment. The probe was already designed that way, so this is a
+hard constraint rather than a change.
