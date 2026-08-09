@@ -1,9 +1,21 @@
-# Play on phone
+# Play
 
-Open this URL in Safari/Chrome (no download):
+## Local
+
+```bash
+npx --yes serve .
+```
+
+Open the printed URL (e.g. `http://localhost:3000`).
+
+## Phone / share
+
+After GitHub Pages is on:
+
+**https://qervas.github.io/horizon-ocean/**
+
+CDN fallback:
 
 **https://cdn.jsdelivr.net/gh/Qervas/horizon-ocean@main/index.html**
 
-If that 404s until index is pushed, use the GitHub file browser and raw view after the next commit lands.
-
-Repo: https://github.com/Qervas/horizon-ocean
+Controls: **Launch**, then WASD or dual touch sticks. Gear icon → time of day & sea state.

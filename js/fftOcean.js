@@ -1,11 +1,12 @@
 /**
- * Tessendorf-style FFT ocean displacement (CPU, 64² for realtime).
- * Phillips spectrum → complex amplitudes → iFFT → height + chop.
- * Used as large-scale displacement; Gerstner fills high-frequency detail in the shader.
+ * Tessendorf-style FFT ocean (CPU, 128²).
+ * Phillips spectrum → complex amplitudes → iFFT → height + chop + Jacobian foam.
+ * Large-scale swell; Gerstner + micro-normals fill high frequency in the shader.
  */
 
-const N = 64;
+const N = 128;
 const N2 = N * N;
+const LOG_N = 7; // log2(128)
 
 function bitReverse(x, bits) {
   let y = 0;
@@ -16,15 +17,23 @@ function bitReverse(x, bits) {
   return y;
 }
 
-/** In-place radix-2 FFT on interleaved complex arrays (re[], im[]), length power of 2. */
+/** Precomputed bit-reversal table for length N. */
+const BR = new Uint16Array(N);
+for (let i = 0; i < N; i++) BR[i] = bitReverse(i, LOG_N);
+
+/** In-place radix-2 FFT on real/imag arrays of length power-of-two. */
 function fft1d(re, im, inverse) {
   const n = re.length;
   const bits = Math.log2(n) | 0;
   for (let i = 0; i < n; i++) {
-    const j = bitReverse(i, bits);
+    const j = bits === LOG_N ? BR[i] : bitReverse(i, bits);
     if (j > i) {
-      let t = re[i]; re[i] = re[j]; re[j] = t;
-      t = im[i]; im[i] = im[j]; im[j] = t;
+      let t = re[i];
+      re[i] = re[j];
+      re[j] = t;
+      t = im[i];
+      im[i] = im[j];
+      im[j] = t;
     }
   }
   for (let len = 2; len <= n; len <<= 1) {
@@ -33,7 +42,8 @@ function fft1d(re, im, inverse) {
     const wlr = Math.cos(ang);
     const wli = Math.sin(ang);
     for (let i = 0; i < n; i += len) {
-      let wr = 1, wi = 0;
+      let wr = 1;
+      let wi = 0;
       for (let j = 0; j < half; j++) {
         const u = i + j;
         const v = u + half;
@@ -58,10 +68,7 @@ function fft1d(re, im, inverse) {
   }
 }
 
-function fft2d(re, im, inverse) {
-  const rowRe = new Float32Array(N);
-  const rowIm = new Float32Array(N);
-  // rows
+function fft2d(re, im, inverse, rowRe, rowIm) {
   for (let y = 0; y < N; y++) {
     const off = y * N;
     for (let x = 0; x < N; x++) {
@@ -74,7 +81,6 @@ function fft2d(re, im, inverse) {
       im[off + x] = rowIm[x];
     }
   }
-  // cols
   for (let x = 0; x < N; x++) {
     for (let y = 0; y < N; y++) {
       rowRe[y] = re[y * N + x];
@@ -88,32 +94,43 @@ function fft2d(re, im, inverse) {
   }
 }
 
-function gaussian() {
-  // Box-Muller
-  let u = 0, v = 0;
-  while (u === 0) u = Math.random();
-  while (v === 0) v = Math.random();
+function gaussian(rng) {
+  let u = 0;
+  let v = 0;
+  while (u === 0) u = rng();
+  while (v === 0) v = rng();
   const mag = Math.sqrt(-2 * Math.log(u));
   return [mag * Math.cos(2 * Math.PI * v), mag * Math.sin(2 * Math.PI * v)];
+}
+
+/** Simple mulberry32 for reproducible seas. */
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
 }
 
 export class FFTOcean {
   constructor(options = {}) {
     this.N = N;
-    this.patch = options.patchSize ?? 180; // meters covered by the FFT tile
-    this.windSpeed = options.windSpeed ?? 12;
-    this.windDir = options.windDir ?? [0.8, 0.6]; // xz
-    this.A = options.A ?? 0.00035; // Phillips amplitude scale
+    this.patch = options.patchSize ?? 220;
+    this.windSpeed = options.windSpeed ?? 14;
+    this.windDir = options.windDir ?? [0.85, 0.53];
+    this.A = options.A ?? 0.00045;
     this.gravity = 9.81;
-    this.choppiness = options.choppiness ?? 1.1;
+    this.choppiness = options.choppiness ?? 1.35;
+    this.seed = options.seed ?? 0x0ce4a;
 
-    // Seed spectrum h̃0(k)
     this.h0Re = new Float32Array(N2);
     this.h0Im = new Float32Array(N2);
-    this.h0NegRe = new Float32Array(N2); // h0(-k) conjugate partner
+    this.h0NegRe = new Float32Array(N2);
     this.h0NegIm = new Float32Array(N2);
 
-    // Working buffers for time-evolved spectrum + iFFT
     this.htRe = new Float32Array(N2);
     this.htIm = new Float32Array(N2);
     this.dxRe = new Float32Array(N2);
@@ -121,63 +138,89 @@ export class FFTOcean {
     this.dzRe = new Float32Array(N2);
     this.dzIm = new Float32Array(N2);
 
-    // Output fields
     this.height = new Float32Array(N2);
     this.dispX = new Float32Array(N2);
     this.dispZ = new Float32Array(N2);
     this.jacobian = new Float32Array(N2);
 
+    // Precomputed k / omega tables
+    this.kx = new Float32Array(N2);
+    this.kz = new Float32Array(N2);
+    this.kLen = new Float32Array(N2);
+    this.omega = new Float32Array(N2);
+    this.kxnk = new Float32Array(N2);
+    this.kznk = new Float32Array(N2);
+
+    this._rowRe = new Float32Array(N);
+    this._rowIm = new Float32Array(N);
+
+    this._heightMin = 0;
+    this._heightRange = 1;
+    this._smoothMin = 0;
+    this._smoothMax = 1;
+    this._smoothed = false;
+
+    this._buildKTable();
     this._seedSpectrum();
     this.time = 0;
   }
 
+  _buildKTable() {
+    const g = this.gravity;
+    for (let m = 0; m < N; m++) {
+      for (let n = 0; n < N; n++) {
+        const i = m * N + n;
+        const kx = ((n < N / 2 ? n : n - N) * (2 * Math.PI)) / this.patch;
+        const kz = ((m < N / 2 ? m : m - N) * (2 * Math.PI)) / this.patch;
+        const kLen = Math.hypot(kx, kz);
+        this.kx[i] = kx;
+        this.kz[i] = kz;
+        this.kLen[i] = kLen;
+        this.omega[i] = Math.sqrt(g * kLen);
+        if (kLen > 1e-8) {
+          this.kxnk[i] = kx / kLen;
+          this.kznk[i] = kz / kLen;
+        } else {
+          this.kxnk[i] = 0;
+          this.kznk[i] = 0;
+        }
+      }
+    }
+  }
+
   setSeaScale(scale) {
-    // Remap wind / amplitude from weather preset
-    this.windSpeed = 6 + scale * 14;
-    this.A = 0.00012 + scale * 0.00045;
-    this.choppiness = 0.85 + scale * 0.45;
+    // scale ~1.0 calm (visible swell) … 1.65 storm
+    this.windSpeed = 5.0 + scale * 12;
+    this.A = 0.00012 + scale * 0.0005;
+    this.choppiness = 0.85 + scale * 0.55;
     this._seedSpectrum();
   }
 
-  _kVector(n, m) {
-    // Wavevector indices centered
-    const kx = ((n < N / 2 ? n : n - N) * (2 * Math.PI)) / this.patch;
-    const kz = ((m < N / 2 ? m : m - N) * (2 * Math.PI)) / this.patch;
-    return [kx, kz];
-  }
-
-  _phillips(kx, kz) {
-    const k2 = kx * kx + kz * kz;
+  _phillips(i) {
+    const k2 = this.kx[i] * this.kx[i] + this.kz[i] * this.kz[i];
     if (k2 < 1e-12) return 0;
     const L = (this.windSpeed * this.windSpeed) / this.gravity;
-    const kLen = Math.sqrt(k2);
+    const kLen = this.kLen[i];
     const wd = this.windDir;
     const wLen = Math.hypot(wd[0], wd[1]) || 1;
-    const kdotw = (kx * wd[0] + kz * wd[1]) / (kLen * wLen);
-    // Suppress waves against the wind
-    const dir = kdotw < 0 ? 0 : kdotw * kdotw;
-    const damp = Math.exp(-k2 * (L * 0.001) * (L * 0.001)); // suppress tiny ripples
+    const kdotw = (this.kx[i] * wd[0] + this.kz[i] * wd[1]) / (kLen * wLen);
+    // Cos^2 directionality; weak counter-wave leak for realism
+    const dir = kdotw < 0 ? 0.08 * kdotw * kdotw : kdotw * kdotw;
+    const l = L * 0.001;
+    const damp = Math.exp(-k2 * l * l);
+    // Phillips + gravity peak
     return this.A * (Math.exp(-1 / (k2 * L * L)) / (k2 * k2)) * dir * damp;
   }
 
   _seedSpectrum() {
-    for (let m = 0; m < N; m++) {
-      for (let n = 0; n < N; n++) {
-        const i = m * N + n;
-        const [kx, kz] = this._kVector(n, m);
-        const p = this._phillips(kx, kz);
-        const [xi_r, xi_i] = gaussian();
-        const s = Math.sqrt(Math.max(p, 0) * 0.5);
-        this.h0Re[i] = s * xi_r;
-        this.h0Im[i] = s * xi_i;
-
-        // h0(-k)
-        const nn = n === 0 ? 0 : N - n;
-        const mm = m === 0 ? 0 : N - m;
-        // Will fill conjugate properly after full pass
-      }
+    const rng = mulberry32(this.seed);
+    for (let i = 0; i < N2; i++) {
+      const p = this._phillips(i);
+      const [xi_r, xi_i] = gaussian(rng);
+      const s = Math.sqrt(Math.max(p, 0) * 0.5);
+      this.h0Re[i] = s * xi_r;
+      this.h0Im[i] = s * xi_i;
     }
-    // Build h0*(-k) from h0(k)
     for (let m = 0; m < N; m++) {
       for (let n = 0; n < N; n++) {
         const i = m * N + n;
@@ -190,51 +233,44 @@ export class FFTOcean {
     }
   }
 
-  /** Evolve spectrum to time t and inverse-FFT into height / chop fields. */
   update(t) {
     this.time = t;
-    const g = this.gravity;
-    for (let m = 0; m < N; m++) {
-      for (let n = 0; n < N; n++) {
-        const i = m * N + n;
-        const [kx, kz] = this._kVector(n, m);
-        const kLen = Math.hypot(kx, kz);
-        const omega = Math.sqrt(g * kLen);
-        const cos = Math.cos(omega * t);
-        const sin = Math.sin(omega * t);
+    const chop = this.choppiness;
 
-        // h̃(k,t) = h0(k) e^{iωt} + h0*(-k) e^{-iωt}
-        const h0r = this.h0Re[i], h0i = this.h0Im[i];
-        const h0nr = this.h0NegRe[i], h0ni = this.h0NegIm[i];
-        // h0 * (cos + i sin) + h0n * (cos - i sin)
-        const re =
-          h0r * cos - h0i * sin + h0nr * cos - h0ni * (-sin);
-        const im =
-          h0r * sin + h0i * cos + h0nr * (-sin) + h0ni * cos;
-        this.htRe[i] = re;
-        this.htIm[i] = im;
+    for (let i = 0; i < N2; i++) {
+      const omega = this.omega[i];
+      const cos = Math.cos(omega * t);
+      const sin = Math.sin(omega * t);
+      const h0r = this.h0Re[i];
+      const h0i = this.h0Im[i];
+      const h0nr = this.h0NegRe[i];
+      const h0ni = this.h0NegIm[i];
 
-        // Displacement: ~ i (k/|k|) h̃
-        if (kLen > 1e-6) {
-          const kxnk = kx / kLen;
-          const kznk = kz / kLen;
-          // multiply by i => (-im, re)
-          this.dxRe[i] = -im * kxnk * this.choppiness;
-          this.dxIm[i] = re * kxnk * this.choppiness;
-          this.dzRe[i] = -im * kznk * this.choppiness;
-          this.dzIm[i] = re * kznk * this.choppiness;
-        } else {
-          this.dxRe[i] = this.dxIm[i] = 0;
-          this.dzRe[i] = this.dzIm[i] = 0;
-        }
+      const re = h0r * cos - h0i * sin + h0nr * cos + h0ni * sin;
+      const im = h0r * sin + h0i * cos - h0nr * sin + h0ni * cos;
+      this.htRe[i] = re;
+      this.htIm[i] = im;
+
+      const kn = this.kLen[i];
+      if (kn > 1e-6) {
+        const kxnk = this.kxnk[i] * chop;
+        const kznk = this.kznk[i] * chop;
+        this.dxRe[i] = -im * kxnk;
+        this.dxIm[i] = re * kxnk;
+        this.dzRe[i] = -im * kznk;
+        this.dzIm[i] = re * kznk;
+      } else {
+        this.dxRe[i] = this.dxIm[i] = 0;
+        this.dzRe[i] = this.dzIm[i] = 0;
       }
     }
 
-    fft2d(this.htRe, this.htIm, true);
-    fft2d(this.dxRe, this.dxIm, true);
-    fft2d(this.dzRe, this.dzIm, true);
+    const rowRe = this._rowRe;
+    const rowIm = this._rowIm;
+    fft2d(this.htRe, this.htIm, true, rowRe, rowIm);
+    fft2d(this.dxRe, this.dxIm, true, rowRe, rowIm);
+    fft2d(this.dzRe, this.dzIm, true, rowRe, rowIm);
 
-    // Sign-flip checkerboard (FFT centering) and store
     for (let m = 0; m < N; m++) {
       for (let n = 0; n < N; n++) {
         const i = m * N + n;
@@ -245,26 +281,21 @@ export class FFTOcean {
       }
     }
 
-    // Approximate Jacobian for foam from finite differences of displacement
+    const scale = N / this.patch;
     for (let m = 0; m < N; m++) {
       for (let n = 0; n < N; n++) {
         const i = m * N + n;
         const n1 = (n + 1) % N;
         const m1 = (m + 1) % N;
-        const dDx_dx = (this.dispX[m * N + n1] - this.dispX[i]) * (N / this.patch);
-        const dDz_dz = (this.dispZ[m1 * N + n] - this.dispZ[i]) * (N / this.patch);
-        const dDx_dz = (this.dispX[m1 * N + n] - this.dispX[i]) * (N / this.patch);
-        const dDz_dx = (this.dispZ[m * N + n1] - this.dispZ[i]) * (N / this.patch);
-        const jxx = 1 + dDx_dx;
-        const jzz = 1 + dDz_dz;
-        const jxz = dDx_dz;
-        const jzx = dDz_dx;
-        this.jacobian[i] = jxx * jzz - jxz * jzx;
+        const dDx_dx = (this.dispX[m * N + n1] - this.dispX[i]) * scale;
+        const dDz_dz = (this.dispZ[m1 * N + n] - this.dispZ[i]) * scale;
+        const dDx_dz = (this.dispX[m1 * N + n] - this.dispX[i]) * scale;
+        const dDz_dx = (this.dispZ[m * N + n1] - this.dispZ[i]) * scale;
+        this.jacobian[i] = (1 + dDx_dx) * (1 + dDz_dz) - dDx_dz * dDz_dx;
       }
     }
   }
 
-  /** Bilinear sample height + horizontal displacement at world xz (tiled). */
   sample(x, z) {
     const u = ((x / this.patch) % 1 + 1) % 1;
     const v = ((z / this.patch) % 1 + 1) % 1;
@@ -302,31 +333,59 @@ export class FFTOcean {
     };
   }
 
-  /** Pack height into RGBA8 texture data (height in R, jacobian foam in G). */
-  fillTextureData(data /* Uint8Array N*N*4 */) {
-    let minH = Infinity, maxH = -Infinity;
+  /**
+   * Pack height / foam / chop into RGBA8.
+   * Smooth min/max over time to avoid quantization flicker.
+   */
+  fillTextureData(data) {
+    let minH = Infinity;
+    let maxH = -Infinity;
     for (let i = 0; i < N2; i++) {
-      if (this.height[i] < minH) minH = this.height[i];
-      if (this.height[i] > maxH) maxH = this.height[i];
+      const h = this.height[i];
+      if (h < minH) minH = h;
+      if (h > maxH) maxH = h;
     }
-    const range = Math.max(maxH - minH, 1e-4);
-    this._heightMin = minH;
+
+    if (!this._smoothed) {
+      this._smoothMin = minH;
+      this._smoothMax = maxH;
+      this._smoothed = true;
+    } else {
+      const a = 0.08;
+      this._smoothMin += (minH - this._smoothMin) * a;
+      this._smoothMax += (maxH - this._smoothMax) * a;
+    }
+
+    // Pad range slightly so peaks don't clip
+    const pad = (this._smoothMax - this._smoothMin) * 0.08 + 0.05;
+    const sMin = this._smoothMin - pad;
+    const sMax = this._smoothMax + pad;
+    const range = Math.max(sMax - sMin, 1e-4);
+    this._heightMin = sMin;
     this._heightRange = range;
+
     for (let i = 0; i < N2; i++) {
-      const hn = (this.height[i] - minH) / range;
-      const foam = Math.max(0, Math.min(1, 1 - this.jacobian[i]));
-      const dxn = this.dispX[i] * 0.05 + 0.5;
-      const dzn = this.dispZ[i] * 0.05 + 0.5;
+      const hn = (this.height[i] - sMin) / range;
+      // Soft foam from folding (Jacobian < 1)
+      const fold = Math.max(0, 1 - this.jacobian[i]);
+      const foam = Math.min(1, fold * fold * 2.2);
+      // Wider chop encode (±25 m)
+      const dxn = this.dispX[i] * 0.04 + 0.5;
+      const dzn = this.dispZ[i] * 0.04 + 0.5;
       const o = i * 4;
-      data[o] = Math.max(0, Math.min(255, hn * 255));
-      data[o + 1] = Math.max(0, Math.min(255, foam * 255));
-      data[o + 2] = Math.max(0, Math.min(255, dxn * 255));
-      data[o + 3] = Math.max(0, Math.min(255, dzn * 255));
+      data[o] = Math.max(0, Math.min(255, (hn * 255 + 0.5) | 0));
+      data[o + 1] = Math.max(0, Math.min(255, (foam * 255 + 0.5) | 0));
+      data[o + 2] = Math.max(0, Math.min(255, (dxn * 255 + 0.5) | 0));
+      data[o + 3] = Math.max(0, Math.min(255, (dzn * 255 + 0.5) | 0));
     }
   }
 
-  get heightMin() { return this._heightMin ?? 0; }
-  get heightRange() { return this._heightRange ?? 1; }
+  get heightMin() {
+    return this._heightMin;
+  }
+  get heightRange() {
+    return this._heightRange;
+  }
 }
 
 export const FFT_N = N;
