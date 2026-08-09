@@ -85,6 +85,7 @@ try {
   await page.evaluate(
     ({ plate, debugMode }) => {
       if (plate === "play") window.__lookdev.playPlate();
+      else if (plate === "boat") window.__lookdev.boatPlate();
       else window.__lookdev.titlePlate();
       window.__lookdev.hideHud();
       if (debugMode) window.__lookdev.debugCascade(debugMode);
@@ -109,6 +110,10 @@ try {
         drawCalls: stats.drawCalls,
         triangles: stats.triangles,
         probeLatencyMs: Number((stats.probeLatency * 1000).toFixed(1)),
+        probeReady: stats.probeReady,
+        probeInFlight: stats.probeInFlight,
+        probeSample0: stats.probeSample0,
+        boatY: stats.boatY,
         errors,
       },
       null,

@@ -15,6 +15,13 @@ import { rollingAverage } from "./probeMath.js";
  *
  * The target is deliberately single-attachment: three r170's readback has no
  * textureIndex parameter and always returns attachment 0.
+ *
+ * KNOWN LIMIT: compensation covers the boat's own motion, not the wave field
+ * evolving during the delay. At the ~2-frame latency real hardware delivers
+ * (~33 ms, ~5 degrees of phase on a 7 s swell) that is invisible. Under
+ * software rendering, where readback can take 450 ms or more, the boat visibly
+ * rides where the water was half a second ago — so headless captures of the
+ * boat misrepresent buoyancy even though the probe itself is correct.
  */
 
 const PROBE_DIM = 16;

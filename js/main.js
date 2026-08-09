@@ -256,6 +256,8 @@ let weather = "calm";
 let timeOfDay = 0.42;
 let simTime = 0;
 let lastBoat = { x: 0, z: 0 };
+/** When set, updateCamera leaves the camera where boatPlate() put it. */
+let boatPlateLock = false;
 
 const keys = new Set();
 const touch = { steer: 0, throttle: 0 };
@@ -358,6 +360,7 @@ document.querySelectorAll("#wxSeg button").forEach((b) => {
 // --- Camera ---
 const camSmooth = { x: 0, y: 3.2, z: 6, init: false };
 function updateCamera(dt) {
+  if (boatPlateLock) return;
   const fx = -Math.sin(boat.yaw);
   const fz = -Math.cos(boat.yaw);
   if (!playing) {
@@ -602,6 +605,10 @@ window.__lookdev = {
     drawCalls: renderer.info.render.calls,
     triangles: renderer.info.render.triangles,
     probeLatency: probe ? probe.latency : 0,
+    probeReady: probe ? probe.ready : null,
+    probeInFlight: probe ? probe.inFlight : null,
+    probeSample0: probe ? probe.sample(0).y : null,
+    boatY: boat.y,
   }),
   hideHud: () => document.querySelector(".hud")?.classList.add("hidden"),
   showHud: () => document.querySelector(".hud")?.classList.remove("hidden"),
@@ -646,5 +653,24 @@ window.__lookdev = {
     boat.speed = 0;
     document.getElementById("title")?.classList.add("hidden");
     camSmooth.init = false;
+  },
+  /**
+   * Three-quarter hero view of the boat. The follow camera sits dead astern,
+   * where a hull reads as a flat transom and nothing about its shape is
+   * legible — useless for judging the model.
+   */
+  boatPlate: () => {
+    playing = false;
+    boat.group.visible = true;
+    for (const g of islandGroups) g.visible = false;
+    boat.x = 0;
+    boat.z = 0;
+    boat.yaw = 0.5;
+    boat.speed = 0;
+    document.getElementById("title")?.classList.add("hidden");
+    camera.position.set(-6.4, 3.1, -6.8);
+    camera.lookAt(0, 0.7, 0);
+    camSmooth.init = false;
+    boatPlateLock = true;
   },
 };
