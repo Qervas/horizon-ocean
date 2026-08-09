@@ -22,13 +22,13 @@ import { extrapolate } from "./ocean/probeMath.js";
 const WEATHER = {
   calm: {
     label: "calm",
-    windSpeed: 7.5,
-    choppiness: 0.9,
-    turb: 0.08,
-    foam: 0.15,
-    roughness: 0.035,
-    sss: 0.55,
-    thickness: 3.4,
+    windSpeed: 4.6,
+    choppiness: 0.48,
+    turb: 0.12,
+    foam: 0.08,
+    roughness: 0.018,
+    sss: 0.45,
+    thickness: 3.8,
     // Legacy CPU-tier scalars, unused on the GPU tier.
     fft: 1.0,
     detail: 0.85,
@@ -446,6 +446,7 @@ function frame(now) {
       sun,
       weather: cfg,
       cameraY: camera.position.y,
+      skyExposure: sun.exposure * 1.25,
     });
   } else {
     const f = cpuFallback;

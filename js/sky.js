@@ -85,14 +85,14 @@ export function sunFromTimeOfDay(tod) {
 
   // Photo: deep clear-day blue (keep chroma high so ACES doesn't milk it)
   const zenith = new THREE.Color().setRGB(
-    THREE.MathUtils.lerp(0.01, 0.12, day),
-    THREE.MathUtils.lerp(0.04, 0.38, day),
-    THREE.MathUtils.lerp(0.15, 0.92, day),
+    THREE.MathUtils.lerp(0.01, 0.21, day),
+    THREE.MathUtils.lerp(0.04, 0.40, day),
+    THREE.MathUtils.lerp(0.15, 0.78, day),
   );
   const horizon = new THREE.Color().setRGB(
-    THREE.MathUtils.lerp(0.08, 0.35, day) + sunset * 0.35,
-    THREE.MathUtils.lerp(0.14, 0.58, day) + sunset * 0.12,
-    THREE.MathUtils.lerp(0.28, 0.85, day) * (1 - sunset * 0.15),
+    THREE.MathUtils.lerp(0.08, 0.66, day) + sunset * 0.35,
+    THREE.MathUtils.lerp(0.14, 0.74, day) + sunset * 0.12,
+    THREE.MathUtils.lerp(0.28, 0.86, day) * (1 - sunset * 0.15),
   );
 
   // Deep troughs: near black-navy (photo nadir)

@@ -5,23 +5,38 @@
 
 ## Success criteria (title plate, calm, midday)
 
-| # | Criterion | Status (wave-h) |
+| # | Criterion | Status (wave-i) |
 |---|-----------|-----------------|
 | 1 | Single water surface, no dual z-fight | **Done** |
 | 2 | Near field without diamond facets | **Done** — Gerstner retired, facets are structurally impossible now |
-| 3 | Sky-dominated Fresnel surface | **Improved** — double-Fresnel bug fixed, reflection now added not mixed |
-| 4 | Soft horizon merge | **Improved** — real 20 km horizon, aerial perspective instead of fog fudge |
-| 5 | Deep navy troughs | **Improved** — Beer-Lambert extinction; still reads more saturated than the photo |
+| 3 | Sky-dominated Fresnel surface | **Done** — double-Fresnel fixed, and reflections now share the sky dome's exposure |
+| 4 | Soft horizon merge | **Done** — real 20 km horizon plus a wide haze band, no fog fudge |
+| 5 | Deep navy troughs | **Improved** — slate blue; photo is still a shade more desaturated |
 | 6 | Sparse glitter / silver bands | **Done** — real slope-variance glitter path, no noise mask |
 | 7 | Boat not black | **Partial** — hull readable, cabin roof still dark |
 | 8 | Motion stable | **Done** — loop-quantised omega, world-space sampling |
 
-**Form solved, colour not.** wave-h transforms the wave structure: four FFT
-cascades, exact normals, a true horizon. The remaining gap is the grade — the
-water still reads as a saturated blue where the photo is a paler,
-sky-dominated surface. That is a look-dev problem now, not a structural one.
+**Closest plate yet.** wave-i fixed the exposure mismatch between the sky dome
+and the water's reflection of it, which was making every reflection ~1.7x too
+dim. With that and a paler atmosphere, the value structure now tracks the
+photo: soft horizon merge, silver bands on wave faces, sparse pinpoint glitter.
+
+Remaining gap is narrow and purely look: the photo is a touch more desaturated
+in the mid-field, and its swell is longer and glassier than the calm preset.
 
 ## Wave log
+
+### Wave I — colour pass on the GPU ocean
+- **Sky dome and water reflections rendered at different exposures** — the dome
+  applied `sun.exposure * 1.25`, the water reflected raw `atmosphereSky()`.
+  Every reflection was ~1.7x too dim, which is why the sea read far darker than
+  the horizon it met. Water now takes `uSkyExposure`.
+- Softened the two hard blue pushes in `atmosphere.js` and widened the horizon
+  haze band; both were added in waves B-F to fight washed-out grey water that
+  the GPU ocean no longer produces
+- Paler sky palette in `sky.js`; calm preset dropped to 4.6 m/s wind
+- Aerial perspective raised to merge sea into sky across the far field
+- Captures: `ref/captures/wave-i-*.png`
 
 ### Wave H — GPU FFT rewrite
 - Replaced the CPU 128² single-cascade RGBA8 FFT with a 4-cascade GPU FFT at

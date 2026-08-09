@@ -44,12 +44,14 @@ vec3 atmosphereSky(vec3 rd) {
   // Stronger zenith blue curve (photo clear day)
   float elev = pow(clamp(h * 0.5 + 0.5, 0.0, 1.0), 0.48);
   vec3 col = mix(uSkyHorizon, uSkyZenith, elev);
-  // Hard blue push so tonemap doesn't desaturate to ice-white
-  col = mix(col, uSkyZenith * vec3(0.7, 0.9, 1.45), pow(max(h, 0.0), 0.9) * 0.65);
-  col.b = max(col.b, col.g * 1.15);
+  // Gentle blue lift. The hard push here was compensating for washed-out grey
+  // water; against the GPU ocean it drives the whole frame into royal blue.
+  col = mix(col, uSkyZenith * vec3(0.9, 0.97, 1.1), pow(max(h, 0.0), 0.9) * 0.45);
+  col.b = max(col.b, col.g * 1.03);
 
-  // Haze only very near the horizon
-  float haze = exp(-max(h, 0.0) * 9.0) * (0.38 + uTurbidity * 0.12);
+  // Wide horizon haze band — the photo's sea and sky meet at nearly the same
+  // value, and that merge comes from haze, not from fogging the water.
+  float haze = exp(-max(h, 0.0) * 4.2) * (0.58 + uTurbidity * 0.12);
   col = mix(col, uSkyHorizon * 1.05, haze);
 
   if (h < 0.0) {

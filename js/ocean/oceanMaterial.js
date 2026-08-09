@@ -68,7 +68,7 @@ export function createOceanMaterial(sim) {
       // Clear ocean water extinction, per metre. Red dies in ~2 m, blue lasts
       // ~15 m — this is what makes troughs read as near-black navy.
       uExtinction: { value: new THREE.Vector3(0.45, 0.09, 0.06) },
-      uScatterAlbedo: { value: new THREE.Color(0.010, 0.043, 0.062) },
+      uScatterAlbedo: { value: new THREE.Color(0.017, 0.040, 0.052) },
       uBodyThickness: { value: 3.2 },
       uSSSStrength: { value: 0.8 },
       uSSSColor: { value: new THREE.Color(0.04, 0.42, 0.36) },
@@ -77,8 +77,9 @@ export function createOceanMaterial(sim) {
       uSlopeVarianceScale: { value: 1 },
       uDebugMode: { value: 0 },
       uExposure: { value: 1.0 },
+      uSkyExposure: { value: 1.0 },
       uCameraY: { value: 5 },
-      uAerialDensity: { value: 0.00075 },
+      uAerialDensity: { value: 0.0019 },
       uWaveHeightScale: { value: 1.5 },
     },
     side: THREE.FrontSide,
@@ -103,7 +104,7 @@ export function bindSimulationTextures(material, sim) {
  * Per-frame uniform update.
  * `sun` is the object returned by sunFromTimeOfDay() in js/sky.js.
  */
-export function updateOceanUniforms(material, { time, sun, weather, cameraY, exposure }) {
+export function updateOceanUniforms(material, { time, sun, weather, cameraY, exposure, skyExposure }) {
   const u = material.uniforms;
   u.uTime.value = time;
   u.uCameraY.value = cameraY;
@@ -112,6 +113,8 @@ export function updateOceanUniforms(material, { time, sun, weather, cameraY, exp
   u.uSkyZenith.value.copy(sun.zenith);
   u.uSkyHorizon.value.copy(sun.horizon);
   if (exposure !== undefined) u.uExposure.value = exposure;
+  // Must track the sky dome's exposure exactly — see uSkyExposure in the shader.
+  if (skyExposure !== undefined) u.uSkyExposure.value = skyExposure;
 
   if (weather) {
     u.uTurbidity.value = weather.turb;

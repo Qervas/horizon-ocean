@@ -40,6 +40,12 @@ uniform float uSlopeVarianceScale;
 /** 0 = shaded water. Non-zero renders an intermediate term instead. */
 uniform int uDebugMode;
 uniform float uExposure;
+/**
+ * Exposure the sky dome renders at. The water must reflect the sky at the same
+ * exposure the sky is drawn at, or reflections come out uniformly dimmer than
+ * the sky they mirror and the sea reads far darker than the horizon it meets.
+ */
+uniform float uSkyExposure;
 uniform float uCameraY;
 uniform float uAerialDensity;
 uniform float uWaveHeightScale;
@@ -117,12 +123,12 @@ void main() {
   vec3 Rh = normalize(vec3(R.x, max(R.y, 0.005), R.z));
   R = normalize(mix(Rh, R, horizonBlend));
 
-  vec3 sharpSky = atmosphereSky(R);
+  vec3 sharpSky = atmosphereSky(R) * uSkyExposure;
   vec3 wideSky = mix(
     atmosphereSky(normalize(vec3(R.x, 0.35, R.z))),
     atmosphereSky(vec3(0.0, 1.0, 0.0)),
     0.35
-  );
+  ) * uSkyExposure;
   vec3 skyRadiance = mix(sharpSky, wideSky, clamp(perceptualRoughness * 1.6, 0.0, 1.0));
 
   vec3 msComp = multiScatterCompensation(NoV, perceptualRoughness, vec3(WATER_F0));
@@ -132,7 +138,7 @@ void main() {
   // Troughs sit under more water than crests, so they extinguish more red.
   float thickness = clamp(uBodyThickness - vWaveHeight, 0.15, 40.0);
   vec3 transmit = waterTransmission(uExtinction, thickness, NoV);
-  vec3 ambientSky = atmosphereSky(vec3(0.0, 1.0, 0.0));
+  vec3 ambientSky = atmosphereSky(vec3(0.0, 1.0, 0.0)) * uSkyExposure;
   vec3 body = uScatterAlbedo * transmit * (ambientSky * 0.6 + uSunColor * NoL * 0.4);
 
   float sss = crestScatter(V, L, N, vWaveHeight, uWaveHeightScale) * uSSSStrength;
@@ -164,7 +170,7 @@ void main() {
   // ---- Aerial perspective ----
   // A real 20 km horizon means this can be a physical falloff rather than the
   // heavy fog that used to hide a 480 m mesh edge.
-  vec3 horizonColor = atmosphereSky(normalize(vec3(-V.x, 0.02, -V.z)));
+  vec3 horizonColor = atmosphereSky(normalize(vec3(-V.x, 0.02, -V.z))) * uSkyExposure;
   float aerial = 1.0 - exp(-vCamDist * uAerialDensity);
   color = mix(color, horizonColor, clamp(aerial, 0.0, 0.95));
 
