@@ -60,14 +60,19 @@ export function peakOmega(U, F, g = GRAVITY) {
   return 22 * Math.pow((g * g) / (U * F), 1 / 3);
 }
 
-/** JONSWAP energy density at angular frequency omega. */
-export function jonswap(omega, U, F, g = GRAVITY) {
+/**
+ * JONSWAP energy density at angular frequency omega.
+ *
+ * `gamma` is the peak enhancement. It controls how narrow the spectrum is,
+ * which is what separates regular swell from confused chop: high gamma
+ * concentrates energy at the peak, low gamma spreads it.
+ */
+export function jonswap(omega, U, F, g = GRAVITY, gamma = 3.3) {
   if (!(omega > 1e-6)) return 0;
   const wp = peakOmega(U, F, g);
   const alpha = 0.076 * Math.pow((U * U) / (F * g), 0.22);
   const sigma = omega <= wp ? 0.07 : 0.09;
   const r = Math.exp(-((omega - wp) * (omega - wp)) / (2 * sigma * sigma * wp * wp));
-  const gamma = 3.3;
   const pm = ((alpha * g * g) / Math.pow(omega, 5)) * Math.exp(-1.25 * Math.pow(wp / omega, 4));
   const s = pm * Math.pow(gamma, r);
   return Number.isFinite(s) ? s : 0;
@@ -130,6 +135,7 @@ export function buildInitialSpectrum({
   fetch,
   depth,
   seed,
+  gamma = 3.3,
 }) {
   const g = GRAVITY;
   const wp = peakOmega(windSpeed, fetch, g);
@@ -161,7 +167,7 @@ export function buildInitialSpectrum({
       // S(k) = S(omega) * (domega/dk) / k
       const dOmegaDk = g / (2 * Math.max(omega, 1e-6));
       const theta = Math.atan2(kz, kx) - Math.atan2(wz, wx);
-      const sOmega = jonswap(omega, windSpeed, fetch, g);
+      const sOmega = jonswap(omega, windSpeed, fetch, g, gamma);
       const spread = donelanBanner(omega, wp, Math.atan2(Math.sin(theta), Math.cos(theta)));
       const sk = (sOmega * dOmegaDk * spread) / k;
 

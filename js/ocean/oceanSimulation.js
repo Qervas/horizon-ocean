@@ -23,6 +23,9 @@ const DEFAULTS = {
   windSpeed: 11,
   windDir: [0.85, 0.53],
   fetch: 100000,
+  // Peak enhancement. Higher values narrow the spectrum toward regular swell;
+  // 3.3 is the standard JONSWAP fit for a developing wind sea.
+  gamma: 3.3,
   depth: 1000,
   seed: 0x0ce4a,
   choppiness: 1.1,
@@ -137,6 +140,7 @@ export class OceanSimulation {
         windSpeed: o.windSpeed,
         windDir: o.windDir,
         fetch: o.fetch,
+        gamma: o.gamma,
         depth: o.depth,
         // Per-cascade seed offset: identical noise across cascades would
         // correlate the bands and produce visible structure.
@@ -156,9 +160,11 @@ export class OceanSimulation {
   }
 
   /** Rebuilds the spectrum. Costs a few ms — call on sea-state change only. */
-  setSeaState({ windSpeed, choppiness, amplitude }) {
+  setSeaState({ windSpeed, choppiness, amplitude, fetch, gamma }) {
     if (windSpeed !== undefined) this.opts.windSpeed = windSpeed;
     if (amplitude !== undefined) this.opts.amplitude = amplitude;
+    if (fetch !== undefined) this.opts.fetch = fetch;
+    if (gamma !== undefined) this.opts.gamma = gamma;
     if (choppiness !== undefined) {
       this.opts.choppiness = choppiness;
       this.evolveMaterial.uniforms.uChoppiness.value = choppiness;

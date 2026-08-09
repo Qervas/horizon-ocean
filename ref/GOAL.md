@@ -5,7 +5,7 @@
 
 ## Success criteria (title plate, calm, midday)
 
-| # | Criterion | Status (wave-i) |
+| # | Criterion | Status (wave-j) |
 |---|-----------|-----------------|
 | 1 | Single water surface, no dual z-fight | **Done** |
 | 2 | Near field without diamond facets | **Done** — Gerstner retired, facets are structurally impossible now |
@@ -16,15 +16,28 @@
 | 7 | Boat not black | **Partial** — hull readable, cabin roof still dark |
 | 8 | Motion stable | **Done** — loop-quantised omega, world-space sampling |
 
-**Closest plate yet.** wave-i fixed the exposure mismatch between the sky dome
-and the water's reflection of it, which was making every reflection ~1.7x too
-dim. With that and a paler atmosphere, the value structure now tracks the
-photo: soft horizon merge, silver bands on wave faces, sparse pinpoint glitter.
+**Closest plate yet.** wave-j exposed JONSWAP fetch and peak enhancement per
+sea state, which is what finally produced the reference's broad glassy swell
+faces — the calm preset is now a 250 km fetch at gamma 6, a long-period swell
+rather than a short confused wind sea. Combined with wave-i's exposure fix, the
+form and value structure both track the photo.
 
-Remaining gap is narrow and purely look: the photo is a touch more desaturated
-in the mid-field, and its swell is longer and glassier than the calm preset.
+Remaining gap is one axis only: the photo is more desaturated — silver-grey
+where this is still blue. That is grade, not simulation.
 
 ## Wave log
+
+### Wave J — JONSWAP fetch and peak enhancement
+- Exposed `fetch` and `gamma` per sea state; both were hardcoded (100 km, 3.3)
+- **Fetch runs the opposite way to intuition**: omega_p = 22 (g^2/(U F))^(1/3),
+  so a *longer* fetch gives *longer* waves. Long glassy swell needs more fetch,
+  not less
+- `gamma` is the swell/chop knob: high values concentrate energy at the peak
+  (regular swell), low values spread it (confused sea)
+- calm = 250 km / gamma 6 (~7 s, ~75 m swell); storm = 60 km / gamma 2
+- First attempt used 900 km, which gave physically correct 200 m waves that were
+  far too tall to read as calm
+- Captures: `ref/captures/wave-j-*.png`
 
 ### Wave I — colour pass on the GPU ocean
 - **Sky dome and water reflections rendered at different exposures** — the dome

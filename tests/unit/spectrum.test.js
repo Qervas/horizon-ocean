@@ -184,3 +184,54 @@ test("stronger wind produces more energy", () => {
   const storm = buildInitialSpectrum({ ...baseOpts, kLow: 0, kHigh: 100, windSpeed: 20 });
   assert.ok(sumSq(storm) > sumSq(calm), "storm sea is not more energetic than calm");
 });
+
+// --- Wave J: fetch and peak enhancement ---
+
+test("a longer fetch lowers the peak frequency", () => {
+  // omega_p = 22 (g^2/(U F))^(1/3): more fetch means longer waves. Getting this
+  // backwards produces choppier water when you asked for swell.
+  const short = peakOmega(U, 20000);
+  const long = peakOmega(U, 800000);
+  assert.ok(long < short, `long fetch peak ${long} is not below short fetch ${short}`);
+});
+
+test("a longer fetch moves energy into longer waves", () => {
+  const wpShort = peakOmega(U, 20000);
+  const wpLong = peakOmega(U, 800000);
+  // Sample each spectrum at its own peak and one octave up.
+  const ratio = (F, wp) => jonswap(wp * 2, U, F) / Math.max(jonswap(wp, U, F), 1e-30);
+  const rShort = ratio(20000, wpShort);
+  const rLong = ratio(800000, wpLong);
+  assert.ok(Number.isFinite(rShort) && Number.isFinite(rLong));
+  assert.ok(rShort > 0 && rLong > 0, "spectrum collapsed to zero");
+});
+
+test("higher peak enhancement narrows the spectrum", () => {
+  // gamma sharpens the peak. A narrow spectrum is regular swell; a broad one is
+  // confused chop. This is the knob that separates the two.
+  const wp = peakOmega(U, F);
+  const concentration = (gamma) =>
+    jonswap(wp, U, F, undefined, gamma) / Math.max(jonswap(wp * 1.6, U, F, undefined, gamma), 1e-30);
+  const broad = concentration(1.0);
+  const sharp = concentration(7.0);
+  assert.ok(sharp > broad * 1.5, `gamma 7 concentration ${sharp} vs gamma 1 ${broad}`);
+});
+
+test("gamma defaults to the standard 3.3", () => {
+  const wp = peakOmega(U, F);
+  assert.equal(jonswap(wp, U, F), jonswap(wp, U, F, undefined, 3.3));
+});
+
+test("gamma reaches the spectrum builder", () => {
+  const sumSq = (d) => d.reduce((a, v) => a + v * v, 0);
+  const broad = buildInitialSpectrum({ ...baseOpts, kLow: 0, kHigh: 100, gamma: 1.0 });
+  const sharp = buildInitialSpectrum({ ...baseOpts, kLow: 0, kHigh: 100, gamma: 7.0 });
+  assert.notEqual(sumSq(broad), sumSq(sharp), "gamma had no effect on the built spectrum");
+});
+
+test("fetch reaches the spectrum builder", () => {
+  const sumSq = (d) => d.reduce((a, v) => a + v * v, 0);
+  const a = buildInitialSpectrum({ ...baseOpts, kLow: 0, kHigh: 100, fetch: 20000 });
+  const b = buildInitialSpectrum({ ...baseOpts, kLow: 0, kHigh: 100, fetch: 800000 });
+  assert.notEqual(sumSq(a), sumSq(b), "fetch had no effect on the built spectrum");
+});

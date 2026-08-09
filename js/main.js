@@ -22,8 +22,16 @@ import { extrapolate } from "./ocean/probeMath.js";
 const WEATHER = {
   calm: {
     label: "calm",
-    windSpeed: 4.6,
-    choppiness: 0.48,
+    // Long fetch plus high peak enhancement: energy concentrated in long,
+    // regular swell rather than spread across a confused wind sea. That is what
+    // the reference photo shows — broad glassy faces, almost no chop.
+    // 250 km fetch puts the peak near a 7 s / 75 m swell — broad faces at the
+    // scale the reference shows. 900 km gave 200 m waves: correct physics for a
+    // fully developed sea, but far too tall to read as calm.
+    windSpeed: 5.5,
+    fetch: 250000,
+    gamma: 6.0,
+    choppiness: 0.5,
     turb: 0.12,
     foam: 0.08,
     roughness: 0.018,
@@ -36,6 +44,8 @@ const WEATHER = {
   moderate: {
     label: "moderate",
     windSpeed: 12,
+    fetch: 200000,
+    gamma: 3.3,
     choppiness: 1.15,
     turb: 0.18,
     foam: 0.55,
@@ -47,7 +57,10 @@ const WEATHER = {
   },
   storm: {
     label: "storm",
+    // Short fetch, broad spectrum: a steep confused sea rather than swell.
     windSpeed: 20,
+    fetch: 60000,
+    gamma: 2.0,
     choppiness: 1.4,
     turb: 0.4,
     foam: 1.0,
@@ -113,6 +126,8 @@ if (tier === TIER_GPU) {
   sim = new OceanSimulation(renderer, {
     windSpeed: WEATHER.calm.windSpeed,
     choppiness: WEATHER.calm.choppiness,
+    fetch: WEATHER.calm.fetch,
+    gamma: WEATHER.calm.gamma,
     windDir: [0.85, 0.53],
     seed: 0x0ce4a,
   });
@@ -249,7 +264,12 @@ function setWeather(w) {
   weather = w;
   const cfg = WEATHER[w];
   if (sim) {
-    sim.setSeaState({ windSpeed: cfg.windSpeed, choppiness: cfg.choppiness });
+    sim.setSeaState({
+      windSpeed: cfg.windSpeed,
+      choppiness: cfg.choppiness,
+      fetch: cfg.fetch,
+      gamma: cfg.gamma,
+    });
   } else if (cpuFallback) {
     cpuFallback.fft.setSeaScale(cfg.fft);
     sea.detailScale = cfg.detail;
