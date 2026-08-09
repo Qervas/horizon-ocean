@@ -1,17 +1,19 @@
 /**
  * High-frequency Gerstner detail layered on top of FFT swell.
- * Swell-dominant spectrum: energy concentrated in long wavelengths.
+ * More trains = less faceted, more continuous surface.
  */
 
 export const DETAIL_WAVES = [
   // Mid chop
-  { dx: 0.72, dz: 0.69, a: 0.55, lambda: 22, steep: 0.32, phase: 0.4, speed: 1.05 },
-  { dx: -0.55, dz: 0.83, a: 0.42, lambda: 14, steep: 0.3, phase: 1.7, speed: 1.1 },
-  { dx: 0.9, dz: -0.44, a: 0.32, lambda: 9.5, steep: 0.28, phase: 2.2, speed: 1.15 },
+  { dx: 0.72, dz: 0.69, a: 0.48, lambda: 28, steep: 0.30, phase: 0.4, speed: 1.0 },
+  { dx: -0.55, dz: 0.83, a: 0.38, lambda: 18, steep: 0.28, phase: 1.7, speed: 1.05 },
+  { dx: 0.9, dz: -0.44, a: 0.28, lambda: 12, steep: 0.26, phase: 2.2, speed: 1.1 },
+  { dx: -0.2, dz: 0.98, a: 0.22, lambda: 9.0, steep: 0.24, phase: 0.6, speed: 1.12 },
   // Ripples
-  { dx: -0.3, dz: 0.95, a: 0.18, lambda: 5.5, steep: 0.24, phase: 0.9, speed: 1.25 },
-  { dx: 0.65, dz: 0.76, a: 0.12, lambda: 3.4, steep: 0.22, phase: 3.0, speed: 1.3 },
-  { dx: -0.88, dz: -0.47, a: 0.08, lambda: 2.1, steep: 0.2, phase: 1.4, speed: 1.4 },
+  { dx: -0.3, dz: 0.95, a: 0.14, lambda: 5.8, steep: 0.22, phase: 0.9, speed: 1.2 },
+  { dx: 0.65, dz: 0.76, a: 0.10, lambda: 3.8, steep: 0.20, phase: 3.0, speed: 1.28 },
+  { dx: -0.88, dz: -0.47, a: 0.07, lambda: 2.4, steep: 0.18, phase: 1.4, speed: 1.35 },
+  { dx: 0.4, dz: -0.92, a: 0.05, lambda: 1.7, steep: 0.16, phase: 2.5, speed: 1.42 },
 ];
 
 export const WAVE_COUNT = DETAIL_WAVES.length;
