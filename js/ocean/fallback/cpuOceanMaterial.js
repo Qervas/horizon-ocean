@@ -1,6 +1,6 @@
 import * as THREE from "three";
-import { WAVE_COUNT } from "./gerstner.js";
-import { ATMOS_GLSL } from "./atmosphere.js";
+import { WAVE_COUNT } from "./cpuGerstner.js";
+import { ATMOS_GLSL } from "../../atmosphere.js";
 
 /**
  * Reflection-first ocean — match ref/ocean-photo-target.jpg

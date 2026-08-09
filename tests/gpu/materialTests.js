@@ -162,6 +162,9 @@ reg("extinction reddens least and kills red most", async () => {
     cam.updateMatrixWorld();
     mat.uniforms.uBodyThickness.value = thickness;
     mat.uniforms.uFoamAmount.value = 0;
+    // Isolate the body term. Composited, the ratio is governed by reflected
+    // sky — the body is correctly a small fraction of the final colour.
+    mat.uniforms.uDebugMode.value = 7;
   };
 
   const thin = renderOcean(sim, topDown(0.4));

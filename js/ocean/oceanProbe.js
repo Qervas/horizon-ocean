@@ -146,11 +146,34 @@ export class OceanProbe {
 
     /** Last successfully read result. Held on stall so the boat never freezes. */
     this.results = new Float32Array(this.slots * 4);
+    this.pending = new Float32Array(this.slots * 2);
+    this.pendingCount = 0;
     this.ready = false;
     this.inFlight = 0;
     this.framesSinceResult = 0;
     this.latency = 1 / 30;
     this.stalled = false;
+  }
+
+  /**
+   * The buoyancy interface `boat.js` consumes, shared with the CPU fallback.
+   *
+   * Records where slot `index` should be probed *next* frame and returns the
+   * most recent result for it. The one-frame offset is inherent to async
+   * readback; `extrapolate()` at the call site is what keeps it from lagging.
+   */
+  sampleAt(index, x, z) {
+    if (index < this.slots) {
+      this.pending[index * 2] = x;
+      this.pending[index * 2 + 1] = z;
+      this.pendingCount = Math.max(this.pendingCount, index + 1);
+    }
+    return this.sample(index);
+  }
+
+  /** Uploads whatever sampleAt() collected this frame. */
+  commitPositions() {
+    if (this.pendingCount > 0) this.setPositions(this.pending.subarray(0, this.pendingCount * 2));
   }
 
   /** Writes probe world positions. `positions` is a flat [x0,z0,x1,z1,...]. */

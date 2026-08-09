@@ -138,9 +138,15 @@ void main() {
   float sss = crestScatter(V, L, N, vWaveHeight, uWaveHeightScale) * uSSSStrength;
   body += uSSSColor * uSunColor * sss;
 
-  // ---- Fresnel mix of body and reflection ----
-  float fresnel = F_Schlick(NoV, WATER_F0);
-  vec3 color = mix(body, reflection, fresnel);
+  // ---- Combine body and reflection ----
+  // multiScatterCompensation already integrates Fresnel over the environment
+  // (it is the split-sum F0*scale + bias term), so the reflection is ADDED and
+  // the body is attenuated by what it reflects away. Mixing by a second
+  // F_Schlick here double-counts Fresnel and dims the sky reflection by more
+  // than an order of magnitude — which is what made the water read as painted
+  // blue instead of sky-dominated.
+  float reflectance = clamp(dot(msComp, vec3(0.2126, 0.7152, 0.0722)), 0.0, 1.0);
+  vec3 color = body * (1.0 - reflectance) + reflection;
   color += specular;
 
   // ---- Foam ----
@@ -158,7 +164,7 @@ void main() {
   // ---- Aerial perspective ----
   // A real 20 km horizon means this can be a physical falloff rather than the
   // heavy fog that used to hide a 480 m mesh edge.
-  vec3 horizonColor = atmosphereSky(normalize(vec3(V.x, 0.02, V.z)));
+  vec3 horizonColor = atmosphereSky(normalize(vec3(-V.x, 0.02, -V.z)));
   float aerial = 1.0 - exp(-vCamDist * uAerialDensity);
   color = mix(color, horizonColor, clamp(aerial, 0.0, 0.95));
 
@@ -179,6 +185,10 @@ void main() {
       outColor = vec4(N * 0.5 + 0.5, 1.0);
     } else if (uDebugMode == 4) {   // foam mask
       outColor = vec4(vec3(foamMask), 1.0);
+    } else if (uDebugMode == 7) {   // body (transmission) term alone
+      outColor = vec4(body, 1.0);
+    } else if (uDebugMode == 8) {   // sky reflection term alone
+      outColor = vec4(reflection, 1.0);
     } else if (uDebugMode == 5) {   // wave height, remapped
       outColor = vec4(vec3(vWaveHeight * 0.25 + 0.5), 1.0);
     } else {                        // camera distance, log scale

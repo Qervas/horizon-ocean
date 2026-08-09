@@ -1,43 +1,128 @@
 /**
- * Headless capture for look-dev goal loop.
- * Usage: node scripts/capture.mjs [wave-name] [title|play]
+ * Headless capture for the look-dev goal loop.
+ *
+ * Usage: node scripts/capture.mjs [wave-name] [title|play] [--debug=N]
+ *
+ * Spawns its own static server, fails on any console/page error, and prints
+ * frame time and draw-call stats alongside the image path.
  */
 import { chromium } from "playwright";
-import { mkdirSync } from "fs";
-import { dirname, join } from "path";
-import { fileURLToPath } from "url";
+import { createServer } from "node:http";
+import { readFile, mkdir } from "node:fs/promises";
+import { dirname, join, extname, normalize } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, "..");
+
 const wave = process.argv[2] || "wave";
 const plate = process.argv[3] || "title";
-const base = process.env.OCEAN_URL || "http://127.0.0.1:5173";
+const debugArg = process.argv.find((a) => a.startsWith("--debug="));
+const debugMode = debugArg ? Number(debugArg.split("=")[1]) : 0;
+
+const MIME = {
+  ".html": "text/html; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".mjs": "text/javascript; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+};
+
+function startServer(port) {
+  const server = createServer(async (req, res) => {
+    try {
+      const urlPath = decodeURIComponent(new URL(req.url, "http://x").pathname);
+      const rel = normalize(urlPath === "/" ? "/index.html" : urlPath).replace(/^([/\\])+/, "");
+      const file = join(root, rel);
+      if (!file.startsWith(root)) {
+        res.writeHead(403).end("forbidden");
+        return;
+      }
+      const body = await readFile(file);
+      res.writeHead(200, { "content-type": MIME[extname(file)] ?? "application/octet-stream" });
+      res.end(body);
+    } catch {
+      res.writeHead(404).end("not found");
+    }
+  });
+  return new Promise((resolve) => server.listen(port, "127.0.0.1", () => resolve(server)));
+}
+
+const PORT = Number(process.env.OCEAN_TEST_PORT || 5175);
+const server = await startServer(PORT);
 const outDir = join(root, "ref", "captures");
-mkdirSync(outDir, { recursive: true });
+await mkdir(outDir, { recursive: true });
 const outPath = join(outDir, `${wave}-${plate}.png`);
 
-const browser = await chromium.launch({ headless: true });
-const page = await browser.newPage({
-  viewport: { width: 1600, height: 900 },
-  deviceScaleFactor: 1,
+const browser = await chromium.launch({
+  headless: true,
+  args: [
+    "--use-gl=angle",
+    "--use-angle=swiftshader",
+    "--enable-unsafe-swiftshader",
+    "--ignore-gpu-blocklist",
+  ],
 });
+const page = await browser.newPage({ viewport: { width: 1600, height: 900 }, deviceScaleFactor: 1 });
 
-await page.goto(base, { waitUntil: "networkidle", timeout: 60000 });
-// Wait for sim + FFT warm-up
-await page.waitForFunction(() => window.__lookdev && window.__oceanSim, null, {
-  timeout: 30000,
+const errors = [];
+page.on("console", (m) => {
+  if (m.type() === "error") errors.push(m.text());
 });
-await page.waitForTimeout(1500);
+page.on("pageerror", (e) => errors.push(String(e)));
 
-if (plate === "play") {
-  await page.evaluate(() => window.__lookdev.playPlate());
-} else {
-  await page.evaluate(() => window.__lookdev.titlePlate());
+let exitCode = 0;
+try {
+  await page.goto(`http://127.0.0.1:${PORT}/index.html`, {
+    waitUntil: "networkidle",
+    timeout: 60000,
+  });
+  await page.waitForFunction(() => window.__lookdev && window.__oceanSim, null, { timeout: 30000 });
+  await page.waitForTimeout(1500);
+
+  await page.evaluate(
+    ({ plate, debugMode }) => {
+      if (plate === "play") window.__lookdev.playPlate();
+      else window.__lookdev.titlePlate();
+      window.__lookdev.hideHud();
+      if (debugMode) window.__lookdev.debugCascade(debugMode);
+    },
+    { plate, debugMode },
+  );
+  await page.waitForTimeout(2500);
+
+  const stats = await page.evaluate(() => window.__lookdev.getStats());
+  await page.screenshot({ path: outPath, type: "png" });
+
+  console.log(
+    JSON.stringify(
+      {
+        ok: errors.length === 0,
+        path: outPath,
+        plate,
+        wave,
+        tier: stats.tier,
+        fps: Math.round(stats.fps),
+        frameMs: Number(stats.frameMs.toFixed(2)),
+        drawCalls: stats.drawCalls,
+        triangles: stats.triangles,
+        probeLatencyMs: Number((stats.probeLatency * 1000).toFixed(1)),
+        errors,
+      },
+      null,
+      2,
+    ),
+  );
+  if (errors.length) exitCode = 1;
+} catch (e) {
+  console.error(String(e));
+  if (errors.length) console.error("page errors:\n  " + errors.join("\n  "));
+  exitCode = 1;
+} finally {
+  await browser.close();
+  server.close();
 }
-await page.evaluate(() => window.__lookdev.hideHud());
-// Let a few frames settle after camera snap
-await page.waitForTimeout(2000);
 
-await page.screenshot({ path: outPath, type: "png" });
-console.log(JSON.stringify({ ok: true, path: outPath, plate, wave }));
-await browser.close();
+process.exit(exitCode);

@@ -68,7 +68,7 @@ export function createOceanMaterial(sim) {
       // Clear ocean water extinction, per metre. Red dies in ~2 m, blue lasts
       // ~15 m — this is what makes troughs read as near-black navy.
       uExtinction: { value: new THREE.Vector3(0.45, 0.09, 0.06) },
-      uScatterAlbedo: { value: new THREE.Color(0.08, 0.28, 0.32) },
+      uScatterAlbedo: { value: new THREE.Color(0.010, 0.043, 0.062) },
       uBodyThickness: { value: 3.2 },
       uSSSStrength: { value: 0.8 },
       uSSSColor: { value: new THREE.Color(0.04, 0.42, 0.36) },
@@ -78,7 +78,7 @@ export function createOceanMaterial(sim) {
       uDebugMode: { value: 0 },
       uExposure: { value: 1.0 },
       uCameraY: { value: 5 },
-      uAerialDensity: { value: 0.00018 },
+      uAerialDensity: { value: 0.00075 },
       uWaveHeightScale: { value: 1.5 },
     },
     side: THREE.FrontSide,

@@ -5,20 +5,35 @@
 
 ## Success criteria (title plate, calm, midday)
 
-| # | Criterion | Status (wave-f) |
+| # | Criterion | Status (wave-h) |
 |---|-----------|-----------------|
 | 1 | Single water surface, no dual z-fight | **Done** |
-| 2 | Near field without diamond facets | **Done** |
-| 3 | Sky-dominated Fresnel surface | **Improved** — clear blue reflections |
-| 4 | Soft horizon merge | **Done** (soft join) |
-| 5 | Deep navy troughs | **Partial** — bluer, not yet near-black like photo |
-| 6 | Sparse glitter / silver bands | **Partial** — soft bands, less pin glitter |
-| 7 | Boat not black | **Done** (play plate) |
-| 8 | Motion stable | **Done** |
+| 2 | Near field without diamond facets | **Done** — Gerstner retired, facets are structurally impossible now |
+| 3 | Sky-dominated Fresnel surface | **Improved** — double-Fresnel bug fixed, reflection now added not mixed |
+| 4 | Soft horizon merge | **Improved** — real 20 km horizon, aerial perspective instead of fog fudge |
+| 5 | Deep navy troughs | **Improved** — Beer-Lambert extinction; still reads more saturated than the photo |
+| 6 | Sparse glitter / silver bands | **Done** — real slope-variance glitter path, no noise mask |
+| 7 | Boat not black | **Partial** — hull readable, cabin roof still dark |
+| 8 | Motion stable | **Done** — loop-quantised omega, world-space sampling |
 
-**Closer, not closed** — wave-f is the best plate; photo still has darker troughs + richer silver face detail.
+**Form solved, colour not.** wave-h transforms the wave structure: four FFT
+cascades, exact normals, a true horizon. The remaining gap is the grade — the
+water still reads as a saturated blue where the photo is a paler,
+sky-dominated surface. That is a look-dev problem now, not a structural one.
 
 ## Wave log
+
+### Wave H — GPU FFT rewrite
+- Replaced the CPU 128² single-cascade RGBA8 FFT with a 4-cascade GPU FFT at
+  256² in float; retired `gerstner.js` entirely
+- JONSWAP + Donelan-Banner spectrum, band-limited so cascades tile without
+  overlap; exact analytic normals and Jacobian; accumulated foam
+- Concentric ring disc mesh (65k verts, 0.25 m → 20 km) replacing the 960 m /
+  410k-vert uniform plane
+- Multi-scatter GGX, Beer-Lambert transmission, slope-variance (LEAN) roughness
+- Boat buoyancy via async GPU readback of the same displacement field
+- Captures: `ref/captures/wave-h-*.png`
+- Review: wave form and horizon transformed; colour grade still too saturated
 
 ### Wave A
 - Single dense mesh, LOD, boat materials, stronger Fresnel

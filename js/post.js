@@ -16,10 +16,11 @@ const FilmGradeShader = {
   uniforms: {
     tDiffuse: { value: null },
     uExposure: { value: 1.0 },
-    // Photo punch: deeper blues, crush milky mids, slight cool
+    // The saturation and contrast boosts here were compensating for washed-out
+    // grey water. The GPU ocean produces real colour, so they now over-cook it.
     uVignette: { value: 0.12 },
-    uSaturation: { value: 1.28 },
-    uContrast: { value: 1.2 },
+    uSaturation: { value: 1.04 },
+    uContrast: { value: 1.08 },
     uWarmth: { value: -0.08 },
     uLift: { value: -0.035 },
   },

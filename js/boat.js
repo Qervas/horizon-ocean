@@ -1,5 +1,4 @@
 import * as THREE from "three";
-import { sampleDetail } from "./gerstner.js";
 
 /**
  * Multi-point buoyancy + torque, wave drift, quadratic drag, planing lift.
@@ -218,14 +217,17 @@ export class Boat {
     let sumDx = 0;
     let sumDz = 0;
     const heights = [];
-    for (const sp of SAMPLE_POINTS) {
+    for (let i = 0; i < SAMPLE_POINTS.length; i++) {
+      const sp = SAMPLE_POINTS[i];
       const wx = this.x + rx * sp.x + fx * sp.z;
       const wz = this.z + rz * sp.x + fz * sp.z;
-      const fft = sea.sampleFFT(wx, wz);
-      const det = sampleDetail(wx, wz, t, sea.detailScale);
-      const y = fft.y * sea.fftScale + det.y;
-      const dx = fft.dx * sea.fftScale * 0.35 + det.x;
-      const dz = fft.dz * sea.fftScale * 0.35 + det.z;
+      // One interface, two implementations: the GPU probe reads back the same
+      // displacement field the renderer draws, the CPU fallback evaluates its
+      // own FFT. Neither detail belongs here.
+      const s = sea.sampleAt(i, wx, wz);
+      const y = s.y;
+      const dx = s.dx;
+      const dz = s.dz;
       heights.push({ y, dx, dz, w: sp.w, lx: sp.x, lz: sp.z });
       sumY += y * sp.w;
       sumW += sp.w;
