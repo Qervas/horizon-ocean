@@ -24,6 +24,11 @@ const debugMode = debugArg ? Number(debugArg.split("=")[1]) : 0;
 const realGpu = process.argv.includes("--gpu");
 const tierArg = process.argv.find((a) => a.startsWith("--tier="));
 const forcedTier = tierArg ? tierArg.split("=")[1] : null;
+const wxArg = process.argv.find((a) => a.startsWith("--weather="));
+const weather = wxArg ? wxArg.split("=")[1] : null;
+// Drives the boat before capturing, so the wake trail has something in it.
+const driveArg = process.argv.find((a) => a.startsWith("--drive="));
+const driveSeconds = driveArg ? Number(driveArg.split("=")[1]) : 0;
 
 const MIME = {
   ".html": "text/html; charset=utf-8",
@@ -93,6 +98,15 @@ try {
   await page.waitForFunction(() => window.__lookdev && window.__oceanSim, null, { timeout: 30000 });
   await page.waitForTimeout(1500);
 
+  if (weather) await page.evaluate((w) => window.__lookdev.setWeather(w), weather);
+  if (driveSeconds > 0) {
+    await page.evaluate(() => {
+      window.__lookdev.playPlate();
+      window.__controlsTest.setKeys(["KeyW"]);
+    });
+    await page.waitForTimeout(driveSeconds * 1000);
+    await page.evaluate(() => window.__controlsTest.setKeys([]));
+  }
   await page.evaluate(
     ({ plate, debugMode }) => {
       if (plate === "play") window.__lookdev.playPlate();

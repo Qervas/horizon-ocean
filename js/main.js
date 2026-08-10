@@ -62,7 +62,9 @@ const WEATHER = {
     windSpeed: 20,
     fetch: 60000,
     gamma: 2.0,
-    choppiness: 1.4,
+    // Steep enough for the surface to actually fold, which is what generates
+    // whitecaps; at 1.4 the Jacobian never dropped far enough to foam.
+    choppiness: 1.9,
     turb: 0.4,
     foam: 1.0,
     roughness: 0.1,

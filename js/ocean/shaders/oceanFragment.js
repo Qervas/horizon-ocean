@@ -162,8 +162,12 @@ void main() {
   if (foamMask > 0.001) {
     // Foam is a rough dielectric, not a white blend: it takes sun and sky
     // like any other surface, which is why real whitecaps have shape.
-    vec3 foamAlbedo = vec3(0.86, 0.90, 0.93);
-    vec3 foamLit = foamAlbedo * (ambientSky * 0.5 + uSunColor * (NoL * 0.6 + 0.2));
+    // Foam is a near-Lambertian reflector of the whole sky hemisphere, not of
+    // a single zenith sample. Under-integrating that irradiance leaves
+    // whitecaps barely brighter than the water they sit on, which is why a
+    // storm sea rendered with no visible breaking.
+    vec3 foamAlbedo = vec3(0.88, 0.92, 0.95);
+    vec3 foamLit = foamAlbedo * (ambientSky * 1.7 + uSunColor * (NoL * 0.9 + 0.35));
     color = mix(color, foamLit, foamMask);
   }
 
@@ -182,6 +186,11 @@ void main() {
 
   // Debug views. A GPU FFT cannot be stepped through in a debugger, so the
   // only way to inspect intermediate terms is to render them.
+  //
+  // CAVEAT: these still pass through the post stack, whose contrast and lift
+  // crush small values to zero. A debug channel reading 0 may mean "small",
+  // not "absent" — verify against the simulation's own output before
+  // concluding a term is dead.
   if (uDebugMode > 0) {
     if (uDebugMode == 1) {          // GGX alpha actually used
       outColor = vec4(vec3(alpha), 1.0);

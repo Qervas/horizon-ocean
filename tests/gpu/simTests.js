@@ -228,3 +228,26 @@ reg("foam accumulates under folding and decays when it stops", async () => {
   assert(maxGrown > 0.01, `foam never accumulated (max ${maxGrown})`);
   assert(maxDecayed < maxGrown * 0.9, `foam did not decay (${maxGrown} -> ${maxDecayed})`);
 });
+
+reg("real sea states actually produce foam", async () => {
+  // The existing foam test forces injection with an artificial threshold of 5,
+  // so it verifies the accumulate/decay mechanism while never checking that any
+  // real sea state crosses the real threshold. Foam was identically zero in the
+  // shipping configuration and every test passed.
+  const N = 64;
+  const sim = new OceanSimulation(renderer, { N, windSpeed: 20, choppiness: 1.9 });
+  let t = 0;
+  for (let i = 0; i < 20; i++) sim.update((t += 1 / 60), 1 / 60);
+
+  const report = [];
+  let best = 0;
+  for (let c = 0; c < sim.cascades.length; c++) {
+    const buf = readAttachment(sim.outputs[c][sim.current], 0, N);
+    let mx = 0;
+    for (let i = 0; i < N * N; i++) mx = Math.max(mx, buf[i * 4 + 3]);
+    report.push(`c${c}=${mx.toFixed(3)}`);
+    best = Math.max(best, mx);
+  }
+  sim.dispose();
+  assert(best > 0.02, `no cascade produced foam in a storm sea (${report.join(" ")})`);
+});

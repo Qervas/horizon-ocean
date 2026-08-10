@@ -29,8 +29,15 @@ const DEFAULTS = {
   depth: 1000,
   seed: 0x0ce4a,
   choppiness: 1.1,
-  foamThreshold: 0.6,
-  foamGain: 1.4,
+  // Foam injects where the Jacobian falls below this, i.e. where the surface
+  // compresses. A flat sea sits at J = 1.0, so a threshold of 0.6 demanded very
+  // strong folding and no sea state ever reached it — foam was identically zero
+  // everywhere. 0.92 catches real folding without foaming open water.
+  foamThreshold: 0.92,
+  // max(0, threshold - J) is a small number even under strong folding — a
+  // Jacobian of 0.7 gives 0.22. At a gain of 1.4 that is a 30% white blend at
+  // its very peak and invisible everywhere else.
+  foamGain: 8.0,
   foamDecayRate: 0.35,
   amplitude: 1,
 };
