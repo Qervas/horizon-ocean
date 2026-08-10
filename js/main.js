@@ -619,6 +619,42 @@ window.__lookdev = {
     if (el) el.value = String(t);
   },
   /**
+   * Is the boat actually riding the waves?
+   *
+   * Samples over `frames` frames, comparing the hull's height against a
+   * zero-latency synchronous read of the surface beneath it. Returns the RMS
+   * and peak error in metres, plus the surface's own range over the window —
+   * error small relative to that range means the boat is tracking; error
+   * comparable to it means it is not.
+   */
+  buoyancyCheck: async (frames = 90) => {
+    if (!probe) return { tier, note: "CPU tier samples the surface directly — no latency" };
+    const samples = [];
+    for (let i = 0; i < frames; i++) {
+      await new Promise((r) => requestAnimationFrame(r));
+      const trueY = probe.sampleSync(0).y;
+      // Probe slot 0 is the bow point; compare against the hull there.
+      const fx = -Math.sin(boat.yaw);
+      const fz = -Math.cos(boat.yaw);
+      const bowLocalZ = -6.2 / 2 + 0.5;
+      const hullY = boat.y + Math.sin(-boat.pitch) * bowLocalZ;
+      samples.push({ trueY, hullY, err: hullY - trueY });
+    }
+    const errs = samples.map((s) => s.err);
+    const trues = samples.map((s) => s.trueY);
+    const rms = Math.sqrt(errs.reduce((a, e) => a + e * e, 0) / errs.length);
+    return {
+      tier,
+      frames,
+      latencyMs: Number((probe.latency * 1000).toFixed(1)),
+      surfaceRange: Number((Math.max(...trues) - Math.min(...trues)).toFixed(3)),
+      rmsErrorM: Number(rms.toFixed(3)),
+      peakErrorM: Number(Math.max(...errs.map(Math.abs)).toFixed(3)),
+      meanErrorM: Number((errs.reduce((a, e) => a + e, 0) / errs.length).toFixed(3)),
+    };
+  },
+
+  /**
    * Renders an intermediate shading term instead of water.
    * 0 off, 1 roughness, 2 slope variance, 3 normals, 4 foam, 5 wave height,
    * 6 camera distance. A GPU FFT cannot be stepped through in a debugger, so

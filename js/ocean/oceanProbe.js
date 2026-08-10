@@ -238,6 +238,21 @@ export class OceanProbe {
   }
 
   /**
+   * Blocking read of the CURRENT frame's probe target.
+   *
+   * Diagnostics only — a synchronous readback stalls the pipeline, which is
+   * exactly what the async path exists to avoid. Its purpose is to measure the
+   * error the async path is carrying: compare this against sample() to see how
+   * far behind the surface the boat actually is.
+   */
+  sampleSync(index) {
+    const buf = new Float32Array(this.slots * 4);
+    this.renderer.readRenderTargetPixels(this.target, 0, 0, PROBE_DIM, PROBE_DIM, buf);
+    const o = index * 4;
+    return { y: buf[o], dx: buf[o + 1], dz: buf[o + 2], foam: buf[o + 3] };
+  }
+
+  /**
    * Latest known surface state at probe `index`.
    * Before the first readback lands this reports a flat sea, which reads as the
    * boat sitting at its waterline for a frame or two rather than falling.
