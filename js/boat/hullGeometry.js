@@ -21,9 +21,12 @@ export const HULL_DEFAULTS = {
   length: 6.2,
   beam: 2.25,
   draftMax: 0.46,
-  sheerMid: 0.30,
-  bowRise: 0.42,
-  sternRise: 0.06,
+  // Freeboard. A 6.2 m centre console carries roughly 0.9 m of topsides
+  // amidships and 1.5 m at the bow; at the 0.30 m this started with, the hull
+  // was a raft and every wave over a foot washed across the deck.
+  sheerMid: 0.92,
+  bowRise: 0.62,
+  sternRise: 0.10,
   stations: 40,
   sectionPoints: 12,
   /** Waterline height, for the navy/white colour split. */
@@ -164,9 +167,10 @@ export function buildDeckData(options = {}) {
       const b = a + 1;
       const c = (i + 1) * cols + j;
       const d = c + 1;
-      // Wound so the deck faces up.
-      indices.push(a, b, c);
-      indices.push(b, d, c);
+      // Wound so the deck faces up. Reversed, it is backface-culled and you see
+      // straight through the sole into the hull interior.
+      indices.push(a, c, b);
+      indices.push(b, c, d);
     }
   }
 

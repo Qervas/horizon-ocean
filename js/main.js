@@ -370,17 +370,43 @@ document.querySelectorAll("#wxSeg button").forEach((b) => {
 
 // --- Camera ---
 const camSmooth = { x: 0, y: 3.2, z: 6, init: false };
+/**
+ * Probe slot reserved for the camera. Slots 0-6 belong to the boat's hull
+ * points; 7 lets the camera ask the same question the boat does.
+ */
+const CAMERA_PROBE_SLOT = 7;
+/** Never let the camera get closer than this to the surface. */
+const CAMERA_WATER_CLEARANCE = 1.6;
+
+/**
+ * Keeps the camera above the water.
+ *
+ * Without this a passing crest simply engulfs it: the shot fills with the
+ * underside of a wave and the boat disappears behind a wall of water.
+ */
+function liftCameraAboveWater() {
+  if (!sea || !sea.sampleAt) return;
+  const s = sea.sampleAt(CAMERA_PROBE_SLOT, camera.position.x, camera.position.z);
+  if (!Number.isFinite(s.y)) return;
+  const floor = s.y + CAMERA_WATER_CLEARANCE;
+  if (camera.position.y < floor) camera.position.y = floor;
+}
+
 function updateCamera(dt) {
-  if (boatPlateLock) return;
+  if (boatPlateLock) {
+    liftCameraAboveWater();
+    return;
+  }
   const fx = -Math.sin(boat.yaw);
   const fz = -Math.cos(boat.yaw);
   if (!playing) {
     const t = simTime;
     const tx = Math.sin(t * 0.035) * 8;
     const tz = 4 + Math.cos(t * 0.028) * 6;
-    const ty = 2.6 + Math.sin(t * 0.07) * 0.35;
+    const ty = 3.4 + Math.sin(t * 0.07) * 0.35;
     camera.position.lerp(new THREE.Vector3(tx, ty, tz), 1 - Math.exp(-1.1 * dt));
     camera.lookAt(camera.position.x + Math.sin(t * 0.02) * 4, 0.4, camera.position.z - 80);
+    liftCameraAboveWater();
     camSmooth.init = false;
     return;
   }
@@ -390,14 +416,15 @@ function updateCamera(dt) {
     camSmooth.z = boat.z - fz * 12;
     camSmooth.init = true;
   }
-  const follow = 10.5 + Math.abs(boat.speed) * 0.1;
-  const height = 3.0 + Math.abs(boat.speed) * 0.035;
+  const follow = 13.5 + Math.abs(boat.speed) * 0.12;
+  const height = 5.2 + Math.abs(boat.speed) * 0.04;
   const a = 1 - Math.exp(-5.2 * dt);
   camSmooth.x += (boat.x - fx * follow - camSmooth.x) * a;
   camSmooth.y += (boat.y + height - camSmooth.y) * a;
   camSmooth.z += (boat.z - fz * follow - camSmooth.z) * a;
   camera.position.set(camSmooth.x, camSmooth.y, camSmooth.z);
-  camera.lookAt(boat.x + fx * 6, boat.y + 0.9, boat.z + fz * 6);
+  camera.lookAt(boat.x + fx * 6, boat.y + 1.4, boat.z + fz * 6);
+  liftCameraAboveWater();
 }
 
 // --- Wake foam ---
@@ -753,8 +780,8 @@ window.__lookdev = {
     document.getElementById("title")?.classList.add("hidden");
     // High enough to clear the swell in front of the boat — at deck height the
     // nearest crest simply occludes the hull.
-    camera.position.set(-7.2, 6.2, -7.6);
-    camera.lookAt(0, 0.6, 0);
+    camera.position.set(-8.4, 5.4, -9.0);
+    camera.lookAt(0, 1.1, 0);
     camSmooth.init = false;
     boatPlateLock = true;
   },

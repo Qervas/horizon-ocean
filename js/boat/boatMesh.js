@@ -19,6 +19,12 @@ import {
 
 const HULL_LENGTH = HULL_DEFAULTS.length;
 
+/**
+ * Everything mounted on the deck moves with the deck. Raising freeboard without
+ * this leaves the console and T-top buried in the sole.
+ */
+const DECK_Y = HULL_DEFAULTS.sheerMid - 0.1;
+
 function surface(THREE, data, material, withColors) {
   const g = new THREE.BufferGeometry();
   g.setAttribute("position", new THREE.BufferAttribute(data.positions, 3));
@@ -48,6 +54,9 @@ export function buildBoatMesh(THREE) {
   // --- Materials ---
   // Slight emissive keeps dark parts legible through the linear→ACES post grade.
   const hullMat = new THREE.MeshStandardMaterial({
+    // A hull is legitimately seen from inside — over the gunwale, and through
+    // the cockpit from above.
+    side: THREE.DoubleSide,
     vertexColors: true,
     roughness: 0.28,
     metalness: 0.02,
@@ -55,6 +64,7 @@ export function buildBoatMesh(THREE) {
     emissiveIntensity: 0.1,
   });
   const teak = new THREE.MeshStandardMaterial({
+    side: THREE.DoubleSide,
     color: 0xc08a4e,
     roughness: 0.72,
     metalness: 0.0,
@@ -110,35 +120,35 @@ export function buildBoatMesh(THREE) {
 
   // --- Console ---
   const console_ = new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.86, 0.66), gel);
-  console_.position.set(0, 0.62, 0.15);
+  console_.position.set(0, DECK_Y + 0.43, 0.15);
   console_.castShadow = true;
   group.add(console_);
 
   // Dark instrument panel, raked back like the reference.
   const dash = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.24, 0.05), carbon);
-  dash.position.set(0, 0.9, -0.18);
+  dash.position.set(0, DECK_Y + 0.71, -0.18);
   dash.rotation.x = 0.34;
   group.add(dash);
 
   const wheel = new THREE.Mesh(new THREE.TorusGeometry(0.14, 0.022, 8, 20), carbon);
-  wheel.position.set(0, 0.96, -0.26);
+  wheel.position.set(0, DECK_Y + 0.77, -0.26);
   wheel.rotation.x = 1.22;
   group.add(wheel);
 
   // --- Windshield: low, raked, wrapping the console front ---
   const screen = new THREE.Mesh(new THREE.BoxGeometry(1.16, 0.34, 0.035), glass);
-  screen.position.set(0, 1.03, -0.52);
+  screen.position.set(0, DECK_Y + 0.84, -0.52);
   screen.rotation.x = -0.42;
   group.add(screen);
   for (const side of [-1, 1]) {
     const wing = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.28, 0.03), glass);
-    wing.position.set(side * 0.72, 0.99, -0.34);
+    wing.position.set(side * 0.72, DECK_Y + 0.80, -0.34);
     wing.rotation.set(-0.36, side * 0.62, 0);
     group.add(wing);
   }
 
   // --- T-top ---
-  const topY = 1.92;
+  const topY = DECK_Y + 1.73;
   const canopy = new THREE.Mesh(new THREE.BoxGeometry(1.68, 0.06, 1.42), gel);
   canopy.position.set(0, topY, 0.24);
   canopy.castShadow = true;
@@ -147,8 +157,8 @@ export function buildBoatMesh(THREE) {
   // Four slim legs, splayed outboard as in the reference.
   for (const sx of [-1, 1]) {
     for (const sz of [-1, 1]) {
-      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.032, topY - 0.42, 8), gel);
-      leg.position.set(sx * 0.6, (topY - 0.42) / 2 + 0.4, 0.24 + sz * 0.52);
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.032, topY - DECK_Y, 8), gel);
+      leg.position.set(sx * 0.6, DECK_Y + (topY - DECK_Y) / 2, 0.24 + sz * 0.52);
       leg.rotation.z = -sx * 0.06;
       leg.castShadow = true;
       group.add(leg);
@@ -182,24 +192,24 @@ export function buildBoatMesh(THREE) {
 
   // --- Seating ---
   const bench = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.16, 0.5), navy);
-  bench.position.set(0, 0.66, 0.72);
+  bench.position.set(0, DECK_Y + 0.47, 0.72);
   bench.castShadow = true;
   group.add(bench);
   const backrest = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.36, 0.12), navy);
-  backrest.position.set(0, 0.86, 0.94);
+  backrest.position.set(0, DECK_Y + 0.67, 0.94);
   group.add(backrest);
 
   const leaning = new THREE.Mesh(new THREE.BoxGeometry(0.86, 0.14, 0.34), navy);
-  leaning.position.set(0, 0.72, -0.62);
+  leaning.position.set(0, DECK_Y + 0.53, -0.62);
   group.add(leaning);
 
   // --- Outboard on the transom ---
   const cowl = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.52, 0.42), carbon);
-  cowl.position.set(0, 0.42, HULL_LENGTH / 2 + 0.18);
+  cowl.position.set(0, DECK_Y + 0.12, HULL_LENGTH / 2 + 0.18);
   cowl.castShadow = true;
   group.add(cowl);
   const leg = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.66, 0.24), carbon);
-  leg.position.set(0, -0.02, HULL_LENGTH / 2 + 0.2);
+  leg.position.set(0, DECK_Y - 0.42, HULL_LENGTH / 2 + 0.2);
   group.add(leg);
   const skeg = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.055, 0.46, 10), carbon);
   skeg.rotation.x = Math.PI / 2;
@@ -239,7 +249,7 @@ export function buildBoatMesh(THREE) {
 
   // Bow eye.
   const eye = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.014, 6, 12), chrome);
-  eye.position.set(0, 0.2, -HULL_LENGTH / 2 + 0.12);
+  eye.position.set(0, DECK_Y + 0.3, -HULL_LENGTH / 2 + 0.12);
   eye.rotation.y = Math.PI / 2;
   group.add(eye);
 

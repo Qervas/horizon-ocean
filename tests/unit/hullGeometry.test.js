@@ -180,3 +180,22 @@ test("sheer line follows the hull edge on the requested side", () => {
     assert.ok(Math.abs(stbd[i][0] + port[i][0]) < 1e-9, "sides not mirrored");
   }
 });
+
+test("deck triangles face upward", () => {
+  // If the deck winds downward it is backface-culled and you see straight
+  // through the sole into the hull interior — which reads as a hollow shell.
+  const { positions, indices } = buildDeckData();
+  const p = (v) => [positions[v * 3], positions[v * 3 + 1], positions[v * 3 + 2]];
+  let up = 0;
+  let down = 0;
+  for (let i = 0; i < indices.length; i += 3) {
+    const [ax, ay, az] = p(indices[i]);
+    const [bx, by, bz] = p(indices[i + 1]);
+    const [cx, cy, cz] = p(indices[i + 2]);
+    // Y component of (b-a) x (c-a)
+    const ny = (bz - az) * (cx - ax) - (bx - ax) * (cz - az);
+    if (ny > 0) up++;
+    else if (ny < 0) down++;
+  }
+  assert.equal(down, 0, `${down} of ${up + down} deck triangles face downward`);
+});
