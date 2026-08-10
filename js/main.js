@@ -431,6 +431,17 @@ function updateCamera(dt) {
 }
 
 // --- Wake foam ---
+/**
+ * Stamps wake foam into the world-space trail atlas.
+ *
+ * KNOWN BUG: the trail renders AHEAD of the boat rather than astern — see
+ * ref/captures/wake-play.png. The offset maths here is correct on inspection
+ * (`along` negative maps to astern at yaw 0, matching boat.update's forward
+ * convention), so the fault is more likely the atlas's row/V orientation:
+ * foamData row `py` versus the shader's fract(worldZ / uFoamWorld). Verify by
+ * stamping a single asymmetric mark at a known world position and reading back
+ * where it lands, rather than by reasoning about the signs.
+ */
 function stampFoam(x, z, amount, yaw) {
   if (amount < 0.04) return;
   const u = ((x / FOAM_WORLD) % 1 + 1) % 1;
