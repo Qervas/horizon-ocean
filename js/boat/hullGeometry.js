@@ -25,7 +25,10 @@ export const HULL_DEFAULTS = {
   // amidships and 1.5 m at the bow; at the 0.30 m this started with, the hull
   // was a raft and every wave over a foot washed across the deck.
   sheerMid: 0.92,
-  bowRise: 0.62,
+  // 0.62 gave 1.54 m at the stem against 0.92 amidships — a banana profile that
+  // reads as a long dory in beam view, though it looked fine three-quarter on.
+  // A modern centre console carries a much flatter sheer.
+  bowRise: 0.36,
   sternRise: 0.10,
   stations: 40,
   sectionPoints: 12,

@@ -2,24 +2,36 @@
   "name": "sheet",
   "cells": [
     {
-      "file": "C:\\Users\\djmax\\Desktop\\lab\\ocean\\ref\\captures\\sheet\\calm.png",
-      "label": "calm"
+      "file": "C:\\Users\\djmax\\Desktop\\lab\\ocean\\ref\\captures\\sheet\\sea-calm.png",
+      "label": "sea calm"
     },
     {
-      "file": "C:\\Users\\djmax\\Desktop\\lab\\ocean\\ref\\captures\\sheet\\moderate.png",
-      "label": "moderate"
+      "file": "C:\\Users\\djmax\\Desktop\\lab\\ocean\\ref\\captures\\sheet\\sea-moderate.png",
+      "label": "sea moderate"
     },
     {
-      "file": "C:\\Users\\djmax\\Desktop\\lab\\ocean\\ref\\captures\\sheet\\storm.png",
-      "label": "storm"
+      "file": "C:\\Users\\djmax\\Desktop\\lab\\ocean\\ref\\captures\\sheet\\sea-storm.png",
+      "label": "sea storm"
     },
     {
-      "file": "C:\\Users\\djmax\\Desktop\\lab\\ocean\\ref\\captures\\sheet\\boat-calm.png",
-      "label": "boat calm"
+      "file": "C:\\Users\\djmax\\Desktop\\lab\\ocean\\ref\\captures\\sheet\\bow.png",
+      "label": "bow"
     },
     {
-      "file": "C:\\Users\\djmax\\Desktop\\lab\\ocean\\ref\\captures\\sheet\\boat-storm.png",
-      "label": "boat storm"
+      "file": "C:\\Users\\djmax\\Desktop\\lab\\ocean\\ref\\captures\\sheet\\quarter.png",
+      "label": "quarter"
+    },
+    {
+      "file": "C:\\Users\\djmax\\Desktop\\lab\\ocean\\ref\\captures\\sheet\\beam.png",
+      "label": "beam"
+    },
+    {
+      "file": "C:\\Users\\djmax\\Desktop\\lab\\ocean\\ref\\captures\\sheet\\stern.png",
+      "label": "stern"
+    },
+    {
+      "file": "C:\\Users\\djmax\\Desktop\\lab\\ocean\\ref\\captures\\sheet\\high.png",
+      "label": "high"
     },
     {
       "file": "C:\\Users\\djmax\\Desktop\\lab\\ocean\\ref\\captures\\sheet\\wake.png",

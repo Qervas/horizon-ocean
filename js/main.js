@@ -791,7 +791,20 @@ window.__lookdev = {
    * where a hull reads as a flat transom and nothing about its shape is
    * legible — useless for judging the model.
    */
-  boatPlate: () => {
+  /**
+   * Camera presets for judging the boat. Every earlier assessment was made from
+   * one three-quarter view — the same single-viewpoint blind spot that let foam
+   * overshoot three times.
+   */
+  boatViews: {
+    bow: { pos: [0.4, 3.2, -11.5], look: [0, 1.2, 0] },
+    quarter: { pos: [-8.4, 5.4, -9.0], look: [0, 1.1, 0] },
+    beam: { pos: [-12.0, 3.4, 0.4], look: [0, 1.2, 0] },
+    stern: { pos: [-0.4, 4.0, 11.5], look: [0, 1.2, 0] },
+    high: { pos: [-6.0, 12.0, -6.5], look: [0, 0.6, 0] },
+  },
+
+  boatPlate: (view = "quarter") => {
     playing = false;
     boat.group.visible = true;
     for (const g of islandGroups) g.visible = false;
@@ -803,8 +816,9 @@ window.__lookdev = {
     document.getElementById("title")?.classList.add("hidden");
     // High enough to clear the swell in front of the boat — at deck height the
     // nearest crest simply occludes the hull.
-    camera.position.set(-8.4, 5.4, -9.0);
-    camera.lookAt(0, 1.1, 0);
+    const v = window.__lookdev.boatViews[view] ?? window.__lookdev.boatViews.quarter;
+    camera.position.set(v.pos[0], v.pos[1], v.pos[2]);
+    camera.lookAt(v.look[0], v.look[1], v.look[2]);
     camSmooth.init = false;
     boatPlateLock = true;
   },

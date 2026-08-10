@@ -29,11 +29,16 @@ const H = 450;
 
 /** Each cell: a label, the plate to set up, and any weather/driving. */
 const CELLS = [
-  { label: "calm", plate: "title", weather: "calm" },
-  { label: "moderate", plate: "title", weather: "moderate" },
-  { label: "storm", plate: "title", weather: "storm" },
-  { label: "boat calm", plate: "boat", weather: "calm" },
-  { label: "boat storm", plate: "boat", weather: "storm" },
+  { label: "sea calm", plate: "title", weather: "calm" },
+  { label: "sea moderate", plate: "title", weather: "moderate" },
+  { label: "sea storm", plate: "title", weather: "storm" },
+  // A boat row at several angles. One viewpoint hides silhouette problems on
+  // every other face, which is how the slab-sided topsides survived so long.
+  { label: "bow", plate: "boat", view: "bow", weather: "calm" },
+  { label: "quarter", plate: "boat", view: "quarter", weather: "calm" },
+  { label: "beam", plate: "boat", view: "beam", weather: "calm" },
+  { label: "stern", plate: "boat", view: "stern", weather: "calm" },
+  { label: "high", plate: "boat", view: "high", weather: "calm" },
   { label: "wake", plate: "play", weather: "moderate", drive: 8 },
 ];
 
@@ -86,12 +91,15 @@ for (const cell of CELLS) {
     await page.waitForTimeout(cell.drive * 1000);
     await page.evaluate(() => window.__controlsTest.setKeys([]));
   }
-  await page.evaluate((p) => {
-    if (p === "play") window.__lookdev.playPlate();
-    else if (p === "boat") window.__lookdev.boatPlate();
-    else window.__lookdev.titlePlate();
-    window.__lookdev.hideHud();
-  }, cell.plate);
+  await page.evaluate(
+    ({ p, view }) => {
+      if (p === "play") window.__lookdev.playPlate();
+      else if (p === "boat") window.__lookdev.boatPlate(view);
+      else window.__lookdev.titlePlate();
+      window.__lookdev.hideHud();
+    },
+    { p: cell.plate, view: cell.view ?? "quarter" },
+  );
   // Weather must be re-applied: titlePlate() forces calm.
   await page.evaluate((w) => window.__lookdev.setWeather(w), cell.weather);
   await page.waitForTimeout(2500);
