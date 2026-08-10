@@ -119,10 +119,16 @@ export function buildBoatMesh(THREE) {
   }
 
   // --- Console ---
-  const console_ = new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.86, 0.66), gel);
+  // Tapered: narrower at the base, as a moulded console is.
+  const console_ = new THREE.Mesh(new THREE.CylinderGeometry(0.52, 0.44, 0.86, 4, 1), gel);
+  console_.rotation.y = Math.PI / 4;
+  console_.scale.set(1.0, 1.0, 0.86);
   console_.position.set(0, DECK_Y + 0.43, 0.15);
   console_.castShadow = true;
   group.add(console_);
+  const coaming = new THREE.Mesh(new THREE.BoxGeometry(0.84, 0.05, 0.72), gel);
+  coaming.position.set(0, DECK_Y + 0.87, 0.15);
+  group.add(coaming);
 
   // Dark instrument panel, raked back like the reference.
   const dash = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.24, 0.05), carbon);
@@ -149,15 +155,22 @@ export function buildBoatMesh(THREE) {
 
   // --- T-top ---
   const topY = DECK_Y + 1.73;
-  const canopy = new THREE.Mesh(new THREE.BoxGeometry(1.68, 0.06, 1.42), gel);
+  const canopy = new THREE.Mesh(new THREE.BoxGeometry(1.72, 0.045, 1.46), gel);
   canopy.position.set(0, topY, 0.24);
   canopy.castShadow = true;
   group.add(canopy);
+  // Shallow lip around the hardtop edge — a bare slab reads as cardboard.
+  const lip = new THREE.Mesh(new THREE.BoxGeometry(1.78, 0.05, 1.52), gel);
+  lip.position.set(0, topY - 0.035, 0.24);
+  group.add(lip);
 
   // Four slim legs, splayed outboard as in the reference.
   for (const sx of [-1, 1]) {
     for (const sz of [-1, 1]) {
-      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.032, topY - DECK_Y, 8), gel);
+      const leg = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.026, 0.038, topY - DECK_Y, 10),
+        gel,
+      );
       leg.position.set(sx * 0.6, DECK_Y + (topY - DECK_Y) / 2, 0.24 + sz * 0.52);
       leg.rotation.z = -sx * 0.06;
       leg.castShadow = true;
@@ -245,6 +258,29 @@ export function buildBoatMesh(THREE) {
       post.position.set(p[0] * 0.94, p[1] + railHeight / 2, p[2]);
       group.add(post);
     }
+  }
+
+  // Anchor locker hatch on the foredeck.
+  const hatch = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.03, 0.62), gel);
+  hatch.position.set(0, DECK_Y + 0.42, -2.05);
+  group.add(hatch);
+
+  // Cleats, port and starboard, fore and aft.
+  for (const side of [-1, 1]) {
+    for (const z of [-1.95, 1.9]) {
+      const cleat = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.05, 0.2), chrome);
+      cleat.position.set(side * 0.78, DECK_Y + 0.36, z);
+      group.add(cleat);
+    }
+  }
+
+  // Rod holders angled outboard from the hardtop rocket launcher.
+  for (let i = 0; i < 4; i++) {
+    const t = (i - 1.5) * 0.22;
+    const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.3, 6), carbon);
+    rod.position.set(t, topY + 0.12, 0.86);
+    rod.rotation.x = -0.42;
+    group.add(rod);
   }
 
   // Bow eye.

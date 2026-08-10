@@ -59,6 +59,29 @@ export function sheerAt(t, { sheerMid, bowRise, sternRise }) {
 }
 
 /**
+ * Topside flare at station t.
+ *
+ * Flare is how far the sections lean outward as they rise from the chine to
+ * the sheer. Without it the topsides run straight and the hull reads
+ * slab-sided; it is strongest at the bow, where it throws spray clear, and
+ * fades to almost nothing at the transom.
+ */
+export function flareAt(t) {
+  return lerp(0.62, 0.08, clamp01(t / 0.65));
+}
+
+/**
+ * Horizontal offset of a section point.
+ *
+ * `a` is the height fraction from keel (0) to sheer (1). The flare term is
+ * normalised to vanish at a=1 so the maximum beam is still exactly halfBeam —
+ * flare pulls the middle of the section IN rather than pushing the deck out.
+ */
+export function sectionX(halfBeam, a, flare) {
+  return halfBeam * a * (1.0 + flare * (Math.pow(a, 2.5) - a));
+}
+
+/**
  * Section exponent at station t.
  * Near 1 is a straight deep-V; larger values flatten the bottom and sharpen the
  * chine. Forward sections are fine and V-shaped, aft sections are flat.
@@ -94,12 +117,13 @@ export function buildHullData(options = {}) {
     const dr = draftAt(t, draftMax);
     const sh = sheerAt(t, o);
     const p = sectionPowerAt(t);
+    const fl = flareAt(t);
 
     for (let j = 0; j < cols; j++) {
       // u runs -1 (port sheer) → 0 (keel) → +1 (starboard sheer)
       const u = (j - sectionPoints) / sectionPoints;
       const a = Math.abs(u);
-      const x = hb * a * Math.sign(u);
+      const x = sectionX(hb, a, fl) * Math.sign(u);
       const y = -dr + (sh + dr) * Math.pow(a, p);
       positions.push(x, y, z);
 
@@ -212,6 +236,7 @@ export function buildTransomData(options = {}) {
   const dr = draftAt(t, draftMax);
   const sh = sheerAt(t, o);
   const p = sectionPowerAt(t);
+  const fl = flareAt(t);
   const z = length / 2;
 
   const cols = sectionPoints * 2 + 1;
@@ -232,7 +257,7 @@ export function buildTransomData(options = {}) {
   for (let j = 0; j < cols; j++) {
     const u = (j - sectionPoints) / sectionPoints;
     const a = Math.abs(u);
-    const x = hb * a * Math.sign(u);
+    const x = sectionX(hb, a, fl) * Math.sign(u);
     const y = -dr + (sh + dr) * Math.pow(a, p);
     positions.push(x, y, z);
     colors.push(...bandColour(y));

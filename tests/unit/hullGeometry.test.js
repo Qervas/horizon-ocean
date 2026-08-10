@@ -7,6 +7,8 @@ import {
   draftAt,
   sheerAt,
   sectionPowerAt,
+  flareAt,
+  sectionX,
   sheerLine,
   HULL_DEFAULTS,
 } from "../../js/boat/hullGeometry.js";
@@ -198,4 +200,27 @@ test("deck triangles face upward", () => {
     else if (ny < 0) down++;
   }
   assert.equal(down, 0, `${down} of ${up + down} deck triangles face downward`);
+});
+
+test("topsides flare — sections lean outward toward the sheer", () => {
+  // Straight topsides are what make a hull read slab-sided. The mid-height of a
+  // flared section sits inboard of the straight line from keel to sheer.
+  const hb = 1.0;
+  const fl = flareAt(0.2); // forward station, strong flare
+  const straight = hb * 0.5;
+  assert.ok(sectionX(hb, 0.5, fl) < straight, "mid-section is not pulled inboard");
+});
+
+test("flare preserves maximum beam exactly", () => {
+  // Flare must pull the middle in, not push the deck out, or the boat silently
+  // grows wider than its stated beam.
+  for (const t of [0, 0.25, 0.5, 0.75, 1]) {
+    const fl = flareAt(t);
+    assert.ok(Math.abs(sectionX(2.0, 1.0, fl) - 2.0) < 1e-9, `beam changed at t=${t}`);
+  }
+});
+
+test("flare is strongest at the bow and fades aft", () => {
+  assert.ok(flareAt(0) > flareAt(0.5), "flare does not fade aft");
+  assert.ok(flareAt(0.5) >= flareAt(1.0), "flare increases toward the transom");
 });
