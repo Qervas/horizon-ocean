@@ -161,9 +161,17 @@ void main() {
   // Computed before compositing: foam is a rough diffuse film, so it has to
   // extinguish the specular and the sharp sky reflection underneath it. Painted
   // over the top instead, it reads as white gloss on glass.
-  float trail = texture(uFoamTrail, fract(vWorldXZ / uFoamWorld)).r * uFoamTrailStrength;
-  float rawFoam = max(foam * uFoamAmount, trail);
   float porosity = foamPorosity(vWorldXZ, uTime);
+
+  // The wake trail arrives near-saturated, so it survived the erosion below
+  // intact and rendered as an opaque white blob while the FFT foam broke up
+  // correctly. Shaping it first — and harder, since a wake is mostly thin
+  // aerated water with a dense core only right behind the transom — puts both
+  // sources on the same footing.
+  float trailRaw = texture(uFoamTrail, fract(vWorldXZ / uFoamWorld)).r;
+  float trail = pow(trailRaw, 1.25) * uFoamTrailStrength * (0.5 + 0.6 * porosity);
+
+  float rawFoam = max(foam * uFoamAmount, trail);
   // Erode by the porosity field, then harden the edge. Dense centres survive,
   // thin margins break into islands.
   float foamMask = clamp((rawFoam * (0.5 + 0.95 * porosity) - 0.10) * 2.1, 0.0, 1.0);

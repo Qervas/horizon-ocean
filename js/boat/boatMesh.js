@@ -65,11 +65,11 @@ export function buildBoatMesh(THREE) {
   });
   const teak = new THREE.MeshStandardMaterial({
     side: THREE.DoubleSide,
-    color: 0xc08a4e,
-    roughness: 0.72,
+    color: 0x8d6a45,
+    roughness: 0.58,
     metalness: 0.0,
-    emissive: 0x1a0f06,
-    emissiveIntensity: 0.12,
+    emissive: 0x0d0803,
+    emissiveIntensity: 0.06,
   });
   const gel = new THREE.MeshStandardMaterial({
     color: 0xf2f5f7,

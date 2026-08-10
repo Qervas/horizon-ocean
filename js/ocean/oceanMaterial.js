@@ -62,7 +62,7 @@ export function createOceanMaterial(sim) {
 
       uFoamTrail: { value: null },
       uFoamWorld: { value: 480 },
-      uFoamTrailStrength: { value: 0.85 },
+      uFoamTrailStrength: { value: 0.78 },
       uFoamAmount: { value: 0.6 },
 
       // Clear ocean water extinction, per metre. Red dies in ~2 m, blue lasts
