@@ -37,7 +37,7 @@ const DEFAULTS = {
   // max(0, threshold - J) is a small number even under strong folding — a
   // Jacobian of 0.7 gives 0.22. At a gain of 1.4 that is a 30% white blend at
   // its very peak and invisible everywhere else.
-  foamGain: 8.0,
+  foamGain: 7.5,
   foamDecayRate: 0.35,
   amplitude: 1,
 };

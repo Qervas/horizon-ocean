@@ -58,6 +58,19 @@ in float vFoam;
 
 out vec4 outColor;
 
+/**
+ * Multi-scale porosity for foam breakup.
+ *
+ * Real whitecaps are a broken film full of holes and thinning edges, not a
+ * painted region. Without this the mask is smooth and reads as white paint.
+ */
+float foamPorosity(vec2 p, float t) {
+  float n1 = atnoise(p * 0.6 + vec2(t * 0.02, t * 0.013));
+  float n2 = atnoise(p * 2.1 - vec2(t * 0.035, t * 0.02));
+  float n3 = atnoise(p * 5.7 + vec2(t * 0.06, t * 0.04));
+  return n1 * 0.5 + n2 * 0.33 + n3 * 0.17;
+}
+
 /** Mip level implied by this pixel's footprint in a cascade's texture. */
 float cascadeLod(vec2 uv) {
   vec2 dx = dFdx(uv) * uTexSize;
@@ -144,6 +157,18 @@ void main() {
   float sss = crestScatter(V, L, N, vWaveHeight, uWaveHeightScale) * uSSSStrength;
   body += uSSSColor * uSunColor * sss;
 
+  // ---- Foam coverage ----
+  // Computed before compositing: foam is a rough diffuse film, so it has to
+  // extinguish the specular and the sharp sky reflection underneath it. Painted
+  // over the top instead, it reads as white gloss on glass.
+  float trail = texture(uFoamTrail, fract(vWorldXZ / uFoamWorld)).r * uFoamTrailStrength;
+  float rawFoam = max(foam * uFoamAmount, trail);
+  float porosity = foamPorosity(vWorldXZ, uTime);
+  // Erode by the porosity field, then harden the edge. Dense centres survive,
+  // thin margins break into islands.
+  float foamMask = clamp((rawFoam * (0.5 + 0.95 * porosity) - 0.10) * 2.1, 0.0, 1.0);
+  foamMask = smoothstep(0.02, 0.6, foamMask);
+
   // ---- Combine body and reflection ----
   // multiScatterCompensation already integrates Fresnel over the environment
   // (it is the split-sum F0*scale + bias term), so the reflection is ADDED and
@@ -152,22 +177,17 @@ void main() {
   // than an order of magnitude — which is what made the water read as painted
   // blue instead of sky-dominated.
   float reflectance = clamp(dot(msComp, vec3(0.2126, 0.7152, 0.0722)), 0.0, 1.0);
-  vec3 color = body * (1.0 - reflectance) + reflection;
-  color += specular;
+  float clearWater = 1.0 - foamMask;
+  vec3 color = body * (1.0 - reflectance) + reflection * clearWater;
+  color += specular * clearWater;
 
-  // ---- Foam ----
-  float foamMask;
-  float trail = texture(uFoamTrail, fract(vWorldXZ / uFoamWorld)).r * uFoamTrailStrength;
-  foamMask = clamp(max(foam * uFoamAmount, trail), 0.0, 1.0);
+  // ---- Foam shading ----
   if (foamMask > 0.001) {
-    // Foam is a rough dielectric, not a white blend: it takes sun and sky
-    // like any other surface, which is why real whitecaps have shape.
-    // Foam is a near-Lambertian reflector of the whole sky hemisphere, not of
-    // a single zenith sample. Under-integrating that irradiance leaves
-    // whitecaps barely brighter than the water they sit on, which is why a
-    // storm sea rendered with no visible breaking.
-    vec3 foamAlbedo = vec3(0.88, 0.92, 0.95);
-    vec3 foamLit = foamAlbedo * (ambientSky * 1.7 + uSunColor * (NoL * 0.9 + 0.35));
+    // Near-Lambertian reflector of the whole sky hemisphere. Thin margins are
+    // greyer and wetter than dense centres, which is most of what separates
+    // foam from paint.
+    vec3 foamAlbedo = mix(vec3(0.62, 0.68, 0.73), vec3(0.94, 0.96, 0.97), porosity);
+    vec3 foamLit = foamAlbedo * (ambientSky * 1.45 + uSunColor * (NoL * 0.8 + 0.3));
     color = mix(color, foamLit, foamMask);
   }
 
