@@ -629,6 +629,23 @@ window.__lookdev = {
     const el = document.getElementById("tod");
     if (el) el.value = String(t);
   },
+  /** Per-frame trace of the buoyancy integrator's own state. */
+  buoyancyTrace: async (frames = 8) => {
+    const out = [];
+    for (let i = 0; i < frames; i++) {
+      await new Promise((r) => requestAnimationFrame(r));
+      out.push({
+        meanY: Number(boat.debugMeanY?.toFixed(3)),
+        targetY: Number(boat.debugTargetY?.toFixed(3)),
+        y: Number(boat.y.toFixed(3)),
+        vy: Number(boat.vy.toFixed(3)),
+        dt: Number(boat.debugDt?.toFixed(4)),
+        samples: boat.debugSampleY?.map((v) => Number(v.toFixed(2))),
+      });
+    }
+    return out;
+  },
+
   /**
    * Is the boat actually riding the waves?
    *
@@ -715,6 +732,7 @@ window.__lookdev = {
     boat.z = 0;
     boat.yaw = 0;
     boat.speed = 0;
+    boat.resetHeave();
     document.getElementById("title")?.classList.add("hidden");
     camSmooth.init = false;
   },
@@ -731,6 +749,7 @@ window.__lookdev = {
     boat.z = 0;
     boat.yaw = 0.5;
     boat.speed = 0;
+    boat.resetHeave();
     document.getElementById("title")?.classList.add("hidden");
     // High enough to clear the swell in front of the boat — at deck height the
     // nearest crest simply occludes the hull.

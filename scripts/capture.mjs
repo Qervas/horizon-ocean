@@ -19,6 +19,9 @@ const wave = process.argv[2] || "wave";
 const plate = process.argv[3] || "title";
 const debugArg = process.argv.find((a) => a.startsWith("--debug="));
 const debugMode = debugArg ? Number(debugArg.split("=")[1]) : 0;
+// Software rendering queues seconds of probe readback, so any plate containing
+// the boat must be captured on the real GPU or the hull will look adrift.
+const realGpu = process.argv.includes("--gpu");
 
 const MIME = {
   ".html": "text/html; charset=utf-8",
@@ -57,19 +60,24 @@ await mkdir(outDir, { recursive: true });
 const outPath = join(outDir, `${wave}-${plate}.png`);
 
 const browser = await chromium.launch({
-  headless: true,
-  args: [
-    "--use-gl=angle",
-    "--use-angle=swiftshader",
-    "--enable-unsafe-swiftshader",
-    "--ignore-gpu-blocklist",
-  ],
+  headless: !realGpu,
+  args: realGpu
+    ? ["--use-angle=d3d11", "--ignore-gpu-blocklist", "--enable-gpu-rasterization"]
+    : [
+        "--use-gl=angle",
+        "--use-angle=swiftshader",
+        "--enable-unsafe-swiftshader",
+        "--ignore-gpu-blocklist",
+      ],
 });
 const page = await browser.newPage({ viewport: { width: 1600, height: 900 }, deviceScaleFactor: 1 });
 
 const errors = [];
 page.on("console", (m) => {
-  if (m.type() === "error") errors.push(m.text());
+  // A missing favicon is not a rendering failure; everything else is.
+  if (m.type() === "error" && !/favicon/i.test(m.location()?.url ?? "")) {
+    errors.push(`${m.text()} @ ${m.location()?.url ?? "?"}`);
+  }
 });
 page.on("pageerror", (e) => errors.push(String(e)));
 

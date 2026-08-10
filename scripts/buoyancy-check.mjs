@@ -77,6 +77,9 @@ const slots = await page.evaluate(() => {
   return { slotY: ys, boatY: Number(window.__oceanSim.getBoat().y.toFixed(3)) };
 });
 if (slots) console.log("slots:", JSON.stringify(slots));
+const trace = await page.evaluate(() => window.__lookdev.buoyancyTrace(6));
+console.log("trace:");
+for (const t of trace) console.log("  " + JSON.stringify(t));
 
 console.log(
   JSON.stringify(

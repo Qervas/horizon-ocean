@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { buildBoatMesh, HULL_LENGTH } from "./boat/boatMesh.js";
+import { createHeaveState, stepHeave, resetHeave } from "./boat/heaveSpring.js";
 
 /**
  * Multi-point buoyancy + torque, wave drift, quadratic drag, planing lift.
@@ -36,11 +37,21 @@ export class Boat {
     this.roll = 0;
     this.speed = 0;
     this.vy = 0;
+    // Heave is a PD controller on both position and velocity error. Damping
+    // absolute velocity instead makes the hull fight the wave lifting it and
+    // ride permanently low — see js/boat/heaveSpring.js.
+    this.heave = createHeaveState();
     this.vpitch = 0;
     this.vroll = 0;
 
     this.group = buildBoatMesh(THREE);
     scene.add(this.group);
+  }
+
+  /** Clears heave momentum after a teleport so the hull does not spring. */
+  resetHeave() {
+    resetHeave(this.heave, this.y);
+    this.vy = 0;
   }
 
   update(sea, t, input, active, dt) {
@@ -127,11 +138,19 @@ export class Boat {
 
     const waterline = -0.03;
     const targetY = meanY + waterline + Math.abs(this.speed) * 0.012;
-    const kSpring = 18;
-    const kDamp = 7;
-    const ay = (targetY - this.y) * kSpring - this.vy * kDamp;
-    this.vy += ay * dt;
-    this.y += this.vy * dt;
+    this.heave.y = this.y;
+    this.heave.vy = this.vy;
+    stepHeave(this.heave, targetY, dt);
+    this.y = this.heave.y;
+    this.vy = this.heave.vy;
+
+    // Exposed for buoyancyTrace(). A spring cannot hold a steady-state offset
+    // from its target, so if y and targetY disagree at rest the cause is
+    // outside this integrator.
+    this.debugMeanY = meanY;
+    this.debugTargetY = targetY;
+    this.debugSampleY = heights.map((h) => h.y);
+    this.debugDt = dt;
 
     const kAng = 12;
     const kAngD = 5;
