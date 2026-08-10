@@ -12,6 +12,7 @@ import {
   updateOceanUniforms,
 } from "./ocean/oceanMaterial.js";
 import { extrapolate } from "./ocean/probeMath.js";
+import { HybridSea } from "./ocean/hybridSea.js";
 
 /**
  * Scene glue. Chooses an ocean tier once at startup and wires it to the boat,
@@ -132,7 +133,15 @@ if (tier === TIER_GPU) {
     seed: 0x0ce4a,
   });
   probe = new OceanProbe(renderer, sim);
-  sea = probe;
+  // Buoyancy needs a latency floor the async probe cannot promise on its own.
+  sea = new HybridSea(probe, {
+    windSpeed: WEATHER.calm.windSpeed,
+    windDir: [0.85, 0.53],
+    fetch: WEATHER.calm.fetch,
+    gamma: WEATHER.calm.gamma,
+    choppiness: WEATHER.calm.choppiness,
+    seed: 0x0ce4a,
+  });
 
   oceanMat = createOceanMaterial(sim);
   oceanMat.uniforms.uFoamTrail.value = foamTex;
@@ -266,12 +275,14 @@ function setWeather(w) {
   weather = w;
   const cfg = WEATHER[w];
   if (sim) {
-    sim.setSeaState({
+    const state = {
       windSpeed: cfg.windSpeed,
       choppiness: cfg.choppiness,
       fetch: cfg.fetch,
       gamma: cfg.gamma,
-    });
+    };
+    sim.setSeaState(state);
+    sea.setSeaState(state);
   } else if (cpuFallback) {
     cpuFallback.fft.setSeaScale(cfg.fft);
     sea.detailScale = cfg.detail;
@@ -463,6 +474,7 @@ function frame(now) {
 
   if (sim) {
     sim.update(simTime, dt);
+    sea.update(simTime);
     bindSimulationTextures(oceanMat, sim);
     updateOceanUniforms(oceanMat, {
       time: simTime,
@@ -605,9 +617,7 @@ window.__lookdev = {
     drawCalls: renderer.info.render.calls,
     triangles: renderer.info.render.triangles,
     probeLatency: probe ? probe.latency : 0,
-    probeReady: probe ? probe.ready : null,
-    probeInFlight: probe ? probe.inFlight : null,
-    probeSample0: probe ? probe.sample(0).y : null,
+    buoyancySource: sea && sea.source ? sea.source : "cpu-tier",
     boatY: boat.y,
   }),
   hideHud: () => document.querySelector(".hud")?.classList.add("hidden"),
@@ -628,16 +638,16 @@ window.__lookdev = {
    * comparable to it means it is not.
    */
   buoyancyCheck: async (frames = 90) => {
-    if (!probe) return { tier, note: "CPU tier samples the surface directly — no latency" };
+    if (!sea || !sea.trueSample) {
+      return { tier, note: "CPU tier samples the surface directly — no latency" };
+    }
     const samples = [];
     for (let i = 0; i < frames; i++) {
       await new Promise((r) => requestAnimationFrame(r));
-      const trueY = probe.sampleSync(0).y;
-      // Probe slot 0 is the bow point; compare against the hull there.
-      const fx = -Math.sin(boat.yaw);
-      const fz = -Math.cos(boat.yaw);
-      const bowLocalZ = -6.2 / 2 + 0.5;
-      const hullY = boat.y + Math.sin(-boat.pitch) * bowLocalZ;
+      // Ground truth is the zero-latency CPU mirror, not a synchronous GPU
+      // readback — the mirror runs the same spectrum and is exact for this frame.
+      const trueY = sea.trueSample(boat.x, boat.z).y;
+      const hullY = boat.y;
       samples.push({ trueY, hullY, err: hullY - trueY });
     }
     const errs = samples.map((s) => s.err);
@@ -646,7 +656,8 @@ window.__lookdev = {
     return {
       tier,
       frames,
-      latencyMs: Number((probe.latency * 1000).toFixed(1)),
+      latencyMs: Number((sea.latency * 1000).toFixed(1)),
+      source: sea.source,
       surfaceRange: Number((Math.max(...trues) - Math.min(...trues)).toFixed(3)),
       rmsErrorM: Number(rms.toFixed(3)),
       peakErrorM: Number(Math.max(...errs.map(Math.abs)).toFixed(3)),
@@ -704,8 +715,10 @@ window.__lookdev = {
     boat.yaw = 0.5;
     boat.speed = 0;
     document.getElementById("title")?.classList.add("hidden");
-    camera.position.set(-6.4, 3.1, -6.8);
-    camera.lookAt(0, 0.7, 0);
+    // High enough to clear the swell in front of the boat — at deck height the
+    // nearest crest simply occludes the hull.
+    camera.position.set(-7.2, 6.2, -7.6);
+    camera.lookAt(0, 0.6, 0);
     camSmooth.init = false;
     boatPlateLock = true;
   },
