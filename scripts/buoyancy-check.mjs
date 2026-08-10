@@ -1,27 +1,29 @@
 /**
  * Measures whether the boat actually tracks the wave surface.
  *
- * Usage: node scripts/buoyancy-check.mjs <project-root>
+ * Usage:
+ *   node scripts/buoyancy-check.mjs            # real GPU (headed)
+ *   node scripts/buoyancy-check.mjs --software # SwiftShader, for comparison
  *
- * CAVEAT: run this against real hardware, not the SwiftShader path used by the
- * capture scripts. Software rendering queues ~2 s of readback latency, which
- * swamps what this is trying to measure.
- *
- * KNOWN ISSUE: probe.sampleSync() currently reports a constant, so the reported
- * rms/peak error is measured against a broken reference and is not meaningful.
- * The latency figure is sound. Fix sampleSync before trusting the rest.
+ * Defaults to a HEADED browser because that is the only way to get the real
+ * GPU. Forcing SwiftShader queues seconds of readback latency, which swamps the
+ * thing being measured and makes the boat look broken when it is not.
  */
 import { chromium } from "playwright";
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
-import { join, extname, normalize } from "node:path";
+import { join, extname, normalize, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const root = process.argv[2];
+const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+const software = process.argv.includes("--software");
+const PORT = 5188;
+
 const MIME = {
-  ".html": "text/html",
-  ".js": "text/javascript",
-  ".mjs": "text/javascript",
-  ".css": "text/css",
+  ".html": "text/html; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".mjs": "text/javascript; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
   ".png": "image/png",
   ".jpg": "image/jpeg",
 };
@@ -38,24 +40,52 @@ const server = createServer(async (req, res) => {
     res.end("not found");
   }
 });
-await new Promise((r) => server.listen(5177, "127.0.0.1", r));
+await new Promise((r) => server.listen(PORT, "127.0.0.1", r));
 
-const browser = await chromium.launch({
-  headless: true,
-  args: ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"],
+const args = software
+  ? ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"]
+  : ["--use-angle=d3d11", "--ignore-gpu-blocklist", "--enable-gpu-rasterization"];
+
+const browser = await chromium.launch({ headless: software, args });
+const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+const errors = [];
+page.on("pageerror", (e) => errors.push(String(e)));
+
+await page.goto(`http://127.0.0.1:${PORT}/index.html`, {
+  waitUntil: "networkidle",
+  timeout: 60000,
 });
-const page = await browser.newPage({ viewport: { width: 900, height: 600 } });
-const errs = [];
-page.on("pageerror", (e) => errs.push(String(e)));
-
-await page.goto("http://127.0.0.1:5177/index.html", { waitUntil: "networkidle", timeout: 60000 });
 await page.waitForFunction(() => window.__lookdev, null, { timeout: 30000 });
-await page.evaluate(() => window.__lookdev.playPlate());
-await page.waitForTimeout(5000);
 
-const result = await page.evaluate(() => window.__lookdev.buoyancyCheck(60));
-console.log(JSON.stringify(result, null, 2));
-if (errs.length) console.error("page errors:", errs.join("\n"));
+const renderer = await page.evaluate(() => {
+  const gl = document.createElement("canvas").getContext("webgl2");
+  const dbg = gl && gl.getExtension("WEBGL_debug_renderer_info");
+  return dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : "unknown";
+});
+
+await page.evaluate(() => window.__lookdev.playPlate());
+// Let the probe warm up and the buoyancy spring settle.
+await page.waitForTimeout(6000);
+
+const stats = await page.evaluate(() => window.__lookdev.getStats());
+const check = await page.evaluate(() => window.__lookdev.buoyancyCheck(120));
+const slots = await page.evaluate(() => {
+  const p = window.__oceanSim.getProbe ? window.__oceanSim.getProbe() : null;
+  if (!p) return null;
+  const ys = [];
+  for (let i = 0; i < 8; i++) ys.push(Number(p.sample(i).y.toFixed(3)));
+  return { slotY: ys, boatY: Number(window.__oceanSim.getBoat().y.toFixed(3)) };
+});
+if (slots) console.log("slots:", JSON.stringify(slots));
+
+console.log(
+  JSON.stringify(
+    { mode: software ? "software" : "real-gpu", renderer, fps: Math.round(stats.fps), ...check },
+    null,
+    2,
+  ),
+);
+if (errors.length) console.error("page errors:\n  " + errors.join("\n  "));
 
 await browser.close();
 server.close();

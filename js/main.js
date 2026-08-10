@@ -605,6 +605,7 @@ window.__oceanSim = {
   getTime: () => simTime,
   getBoat: () => ({ x: boat.x, y: boat.y, z: boat.z, yaw: boat.yaw, speed: boat.speed }),
   getTier: () => tier,
+  getProbe: () => probe,
 };
 
 window.__lookdev = {
@@ -644,11 +645,19 @@ window.__lookdev = {
     const samples = [];
     for (let i = 0; i < frames; i++) {
       await new Promise((r) => requestAnimationFrame(r));
-      // Ground truth is the zero-latency CPU mirror, not a synchronous GPU
-      // readback — the mirror runs the same spectrum and is exact for this frame.
-      const trueY = sea.trueSample(boat.x, boat.z).y;
+      // Ground truth must be the surface the boat is ACTUALLY riding. When the
+      // probe is driving, comparing against the CPU mirror measures the phase
+      // difference between two different seas, not the boat's tracking error.
+      const ridden =
+        sea.source === "probe" && sea.probe
+          // Slot 4 is the centreline point (x=0, z=0). Slot 0 is the bow, 2.6 m
+          // forward, whose surface height differs from the hull origin's by the
+          // pitch of the wave — comparing against it reports a constant bias
+          // that has nothing to do with buoyancy.
+          ? sea.probe.sample(4).y
+          : sea.trueSample(boat.x, boat.z).y;
       const hullY = boat.y;
-      samples.push({ trueY, hullY, err: hullY - trueY });
+      samples.push({ trueY: ridden, hullY, err: hullY - ridden });
     }
     const errs = samples.map((s) => s.err);
     const trues = samples.map((s) => s.trueY);
@@ -658,6 +667,14 @@ window.__lookdev = {
       frames,
       latencyMs: Number((sea.latency * 1000).toFixed(1)),
       source: sea.source,
+      // Latency turns into position error through the wave's own motion:
+      // a swell of period T and amplitude A is displaced by roughly
+      // A * sin(2*pi*latency/T) over the readback delay.
+      latencyPhaseErrorM: (() => {
+        const amplitude = (Math.max(...trues) - Math.min(...trues)) / 2;
+        const period = 7.0; // calm preset peak period, seconds
+        return Number((amplitude * Math.sin((2 * Math.PI * sea.latency) / period)).toFixed(3));
+      })(),
       surfaceRange: Number((Math.max(...trues) - Math.min(...trues)).toFixed(3)),
       rmsErrorM: Number(rms.toFixed(3)),
       peakErrorM: Number(Math.max(...errs.map(Math.abs)).toFixed(3)),
