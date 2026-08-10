@@ -350,13 +350,16 @@ void main() {
   // ---- Aerial perspective + soft horizon
   vec3 fogCol = atmosphereSky(normalize(vec3(V.x, max(V.y * 0.08 + 0.04, 0.03), V.z)));
   float fog = 1.0 - exp(-camDist * 0.00026);
-  fog = clamp(fog * 1.05, 0.0, 0.9);
+  fog = clamp(fog * 1.05, 0.0, 0.75);
   col = mix(col, fogCol, fog);
 
   vec3 viewN = normalize(vViewDir);
   float graze = pow(1.0 - clamp(viewN.y * 2.5 + 0.15, 0.0, 1.0), 1.5);
   float far = smoothstep(100.0, 650.0, camDist);
-  col = mix(col, fogCol, clamp(graze * 0.42 + far * 0.38, 0.0, 0.88));
+  // These blended up to 88% toward sky colour, which is the milky wash logged
+  // against this shader since wave B. It read as blue only because the sky was
+  // saturated then; against the pale wave-i atmosphere it goes white.
+  col = mix(col, fogCol, clamp(graze * 0.14 + far * 0.20, 0.0, 0.55));
 
   if (uCameraY < 0.4) {
     float depth = clamp((0.4 - uCameraY) * 0.5, 0.0, 1.0);

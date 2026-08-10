@@ -22,6 +22,8 @@ const debugMode = debugArg ? Number(debugArg.split("=")[1]) : 0;
 // Software rendering queues seconds of probe readback, so any plate containing
 // the boat must be captured on the real GPU or the hull will look adrift.
 const realGpu = process.argv.includes("--gpu");
+const tierArg = process.argv.find((a) => a.startsWith("--tier="));
+const forcedTier = tierArg ? tierArg.split("=")[1] : null;
 
 const MIME = {
   ".html": "text/html; charset=utf-8",
@@ -83,7 +85,8 @@ page.on("pageerror", (e) => errors.push(String(e)));
 
 let exitCode = 0;
 try {
-  await page.goto(`http://127.0.0.1:${PORT}/index.html`, {
+  const query = forcedTier ? `?tier=${forcedTier}` : "";
+  await page.goto(`http://127.0.0.1:${PORT}/index.html${query}`, {
     waitUntil: "networkidle",
     timeout: 60000,
   });

@@ -93,7 +93,8 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 // quad, not the scene.
 renderer.info.autoReset = false;
 
-const tier = detectTier({ getContext: () => renderer.getContext() });
+const forcedTier = new URLSearchParams(location.search).get("tier");
+const tier = detectTier({ getContext: () => renderer.getContext(), forcedTier });
 console.info(`[ocean] tier=${tier} — ${tierReason(tier)}`);
 
 const scene = new THREE.Scene();
@@ -533,6 +534,14 @@ function frame(now) {
     u.uCameraY.value = camera.position.y;
     u.uTurbidity.value = cfg.turb;
     u.uSeaState.value = cfg.foam;
+    // These were dropped when main.js was rewritten for the GPU tier, leaving
+    // the fallback shader on its constructor defaults against a much paler sky
+    // — which blew the whole surface out to white.
+    u.uExposure.value = 0.82;
+    u.uRoughness.value = cfg.roughness;
+    u.uSSSStrength.value = cfg.sss;
+    u.uFoamStrength.value = cfg.foam;
+    u.uWindDir.value.set(0.85, 0.53);
     f.applyDetailWaves(oceanMat, f.gerstner.packDetailWaves(cfg.detail));
   }
 

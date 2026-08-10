@@ -18,7 +18,11 @@ export const TIER_CPU = "cpu";
  *   Returns a WebGL2 context, or null if unavailable.
  * @returns {"gpu"|"cpu"}
  */
-export function detectTier({ getContext } = {}) {
+export function detectTier({ getContext, forcedTier } = {}) {
+  // ?tier=cpu forces the fallback path. Without this the CPU tier is
+  // unreachable on any machine that supports the GPU one, which is how it went
+  // untested through an entire rewrite.
+  if (forcedTier === TIER_CPU || forcedTier === TIER_GPU) return forcedTier;
   let gl = null;
   try {
     gl = getContext ? getContext() : defaultGetContext();
