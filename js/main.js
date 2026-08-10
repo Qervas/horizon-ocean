@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { createSkyMaterial, sunFromTimeOfDay } from "./sky.js";
 import { Boat } from "./boat.js";
 import { createPostStack } from "./post.js";
+import { FreeCamera } from "./freeCamera.js";
 import { detectTier, tierReason, TIER_GPU } from "./ocean/capabilities.js";
 import { OceanSimulation } from "./ocean/oceanSimulation.js";
 import { OceanProbe } from "./ocean/oceanProbe.js";
@@ -262,6 +263,7 @@ const boat = new Boat(scene);
 boat.group.visible = false;
 
 const post = createPostStack(renderer, scene, camera);
+const freeCam = new FreeCamera(camera, canvas);
 
 // --- State ---
 let playing = false;
@@ -301,6 +303,11 @@ setWeather("calm");
 
 // --- Input ---
 window.addEventListener("keydown", (e) => {
+  if (e.code === "KeyF" && !e.repeat) {
+    const on = freeCam.toggle();
+    document.getElementById("camMode")?.classList.toggle("hidden", !on);
+    document.getElementById("wxLabel").textContent = on ? "free cam" : WEATHER[weather].label;
+  }
   keys.add(e.code);
   if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].includes(e.code)) {
     e.preventDefault();
@@ -310,6 +317,8 @@ window.addEventListener("keyup", (e) => keys.delete(e.code));
 window.addEventListener("blur", () => keys.clear());
 
 function readInput() {
+  // While the free camera is flying, WASD drives it rather than the boat.
+  if (freeCam.enabled) return { steer: 0, throttle: 0 };
   let steer = 0;
   let throttle = 0;
   if (keys.has("KeyA") || keys.has("ArrowLeft")) steer += 1;
@@ -397,6 +406,10 @@ function liftCameraAboveWater() {
 }
 
 function updateCamera(dt) {
+  if (freeCam.enabled) {
+    freeCam.update(dt, keys);
+    return;
+  }
   if (boatPlateLock) {
     liftCameraAboveWater();
     return;
@@ -681,6 +694,17 @@ window.__oceanSim = {
 
 window.__lookdev = {
   ready: () => simTime > 0.5,
+  freeCam,
+  setFreeCam: (on, pos, look) => {
+    if (on) {
+      if (pos) camera.position.set(pos[0], pos[1], pos[2]);
+      if (look) camera.lookAt(look[0], look[1], look[2]);
+      freeCam.enable();
+    } else {
+      freeCam.disable();
+    }
+    return freeCam.enabled;
+  },
   tier: () => tier,
   getStats: () => ({
     tier,

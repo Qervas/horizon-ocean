@@ -29,6 +29,9 @@ const weather = wxArg ? wxArg.split("=")[1] : null;
 // Drives the boat before capturing, so the wake trail has something in it.
 const driveArg = process.argv.find((a) => a.startsWith("--drive="));
 const driveSeconds = driveArg ? Number(driveArg.split("=")[1]) : 0;
+// --freecam=x,y,z,lx,ly,lz places the free camera and flies from there.
+const fcArg = process.argv.find((a) => a.startsWith("--freecam="));
+const freecam = fcArg ? fcArg.split("=")[1].split(",").map(Number) : null;
 
 const MIME = {
   ".html": "text/html; charset=utf-8",
@@ -119,6 +122,12 @@ try {
   // Weather must be applied AFTER the plate: titlePlate() forces calm, so
   // setting it first silently captured calm for every --weather run.
   if (weather) await page.evaluate((w) => window.__lookdev.setWeather(w), weather);
+  if (freecam && freecam.length === 6) {
+    await page.evaluate(
+      (f) => window.__lookdev.setFreeCam(true, f.slice(0, 3), f.slice(3, 6)),
+      freecam,
+    );
+  }
   await page.waitForTimeout(2500);
 
   const stats = await page.evaluate(() => window.__lookdev.getStats());
