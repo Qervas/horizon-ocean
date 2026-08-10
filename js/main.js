@@ -462,18 +462,39 @@ function stampFoam(x, z, amount, yaw) {
       if (fall <= 0) continue;
       const half = 0.6 + behind * 0.45;
       const arm = Math.abs(Math.abs(lat) - half);
-      const vMask = Math.max(0.12, 1 - arm * 0.55) * (behind > 0 || along >= 0 ? 1 : 0.3);
-      const wx = Math.round(rx * lat + fx * along);
-      const wz = Math.round(rz * lat + fz * along);
-      const px = (cx + wx + FOAM_RES) % FOAM_RES;
-      const py = (cy + wz + FOAM_RES) % FOAM_RES;
-      const i = (py * FOAM_RES + px) * 4;
-      const a = (add * fall * vMask) | 0;
-      if (a < 1) continue;
-      foamData[i] = Math.min(255, foamData[i] + a);
-      foamData[i + 1] = foamData[i];
-      foamData[i + 2] = foamData[i];
-      foamData[i + 3] = 255;
+      const arms = Math.max(0.12, 1 - arm * 0.55) * (behind > 0 || along >= 0 ? 1 : 0.3);
+      // Prop wash. The arms mask bottoms out on the centreline — the point
+      // furthest from either arm — so the middle of the wake was its darkest
+      // part. A real prop churns the centreline hardest, and that gap is what
+      // showed as a blue seam straight down the wake.
+      const wash = behind > 0 ? Math.max(0, 1 - Math.abs(lat) / (half + 1.6)) * 0.85 : 0;
+      const vMask = Math.max(arms, wash);
+
+      // Bilinear splat rather than a rounded texel. Rounding skips texels at
+      // any yaw that is not axis-aligned, breaking thin features into dashes.
+      const fx0 = rx * lat + fx * along;
+      const fz0 = rz * lat + fz * along;
+      const ix = Math.floor(fx0);
+      const iz = Math.floor(fz0);
+      const tx = fx0 - ix;
+      const tz = fz0 - iz;
+      const amount0 = add * fall * vMask;
+      if (amount0 < 1) continue;
+      for (let oz = 0; oz <= 1; oz++) {
+        for (let ox = 0; ox <= 1; ox++) {
+          const w = (ox ? tx : 1 - tx) * (oz ? tz : 1 - tz);
+          if (w <= 0.002) continue;
+          const px = (cx + ix + ox + FOAM_RES) % FOAM_RES;
+          const py = (cy + iz + oz + FOAM_RES) % FOAM_RES;
+          const i = (py * FOAM_RES + px) * 4;
+          const a = (amount0 * w) | 0;
+          if (a < 1) continue;
+          foamData[i] = Math.min(255, foamData[i] + a);
+          foamData[i + 1] = foamData[i];
+          foamData[i + 2] = foamData[i];
+          foamData[i + 3] = 255;
+        }
+      }
     }
   }
   foamTex.needsUpdate = true;
