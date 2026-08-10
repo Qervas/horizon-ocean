@@ -98,7 +98,6 @@ try {
   await page.waitForFunction(() => window.__lookdev && window.__oceanSim, null, { timeout: 30000 });
   await page.waitForTimeout(1500);
 
-  if (weather) await page.evaluate((w) => window.__lookdev.setWeather(w), weather);
   if (driveSeconds > 0) {
     await page.evaluate(() => {
       window.__lookdev.playPlate();
@@ -117,6 +116,9 @@ try {
     },
     { plate, debugMode },
   );
+  // Weather must be applied AFTER the plate: titlePlate() forces calm, so
+  // setting it first silently captured calm for every --weather run.
+  if (weather) await page.evaluate((w) => window.__lookdev.setWeather(w), weather);
   await page.waitForTimeout(2500);
 
   const stats = await page.evaluate(() => window.__lookdev.getStats());

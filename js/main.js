@@ -49,7 +49,7 @@ const WEATHER = {
     gamma: 3.3,
     choppiness: 1.15,
     turb: 0.18,
-    foam: 0.55,
+    foam: 0.32,
     roughness: 0.055,
     sss: 0.8,
     thickness: 3.0,
@@ -62,11 +62,12 @@ const WEATHER = {
     windSpeed: 20,
     fetch: 60000,
     gamma: 2.0,
-    // Steep enough for the surface to actually fold, which is what generates
-    // whitecaps; at 1.4 the Jacobian never dropped far enough to foam.
-    choppiness: 1.9,
+    // 1.9 was set while foam was broken, to force folding at any cost. With a
+    // working foam threshold that steepness folds the entire surface and the
+    // sea renders solid white.
+    choppiness: 1.3,
     turb: 0.4,
-    foam: 1.0,
+    foam: 0.42,
     roughness: 0.1,
     sss: 1.0,
     thickness: 2.4,
